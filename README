@@ -5,7 +5,6 @@ SYNOPSIS
       perl -MNNML::Server -e server
       perl -MNNML::Server -e unspool
 
-
 DESCRIPTION
     NNML::Server server implements a minimal NNTP server. It is (hope-)
     fully conformant to rfc977. In addition the commands `XOVER' and
@@ -14,8 +13,9 @@ DESCRIPTION
     Supported commands:
 
       ARTICLE, AUTHINFO, BODY, GROUP, HEAD, HELP, IHAVE, LAST, LIST,
-      MODE, NEWGROUPS, NEWNEWS, NEXT, POST, QUIT, SLAVE, STAT, XOVER
-      XHDR
+      MODE, NEWGROUPS, NEWNEWS, NEXT, POST, QUIT, SLAVE, STAT
+
+      XOVER, XHDR, LIST NEWSGROUPS ng-spec
       
     The main reason for writing this was to synchronize my mail directories
     across different hosts. The Mail directories are MH-Style with a F<.overview>
@@ -25,18 +25,15 @@ DESCRIPTION
     B<overview> program. Upon C<POST> and C<IHAVE> commands this files
     will also be updated.
 
-
     To start from scratch use:
 
       touch /tmp/active;
       perl -MNNML::Server -e 'server(base => "/tmp", port => 3000)'
 
-
     To export your mh-Mail use:
 
       perl overview -base ~/Mail
       perl -MNNML::Server -e 'server(base => "$ENV{HOME}/Mail", port => 3000)'
-
 
     The command POST and IHAVE honour the `Newsgroups' header if not
     overwritten by the `X-Nnml-Groups' header. Articles will contain an
@@ -49,7 +46,6 @@ DESCRIPTION
 
       perl -MNNML::Server -e unspool
 
-
     Rejected articles will be saven in `$Config-'bad> (usually
     ~/Mail/NNML.bad)
 
@@ -58,7 +54,6 @@ AUTHORIZATION
 
       perl -MNNML::Auth -e "NNML::Auth::add_user($ENV{LOGANME}, 'passwd', \
         'read', 'write', 'admin')"
-
 
     If *base*/passwd exists, three levels of authorization are recognized:
 

@@ -4,9 +4,9 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Sep 28 13:53:36 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Mon Mar 24 11:04:00 1997
+# Last Modified On: Tue Apr  1 13:23:28 1997
 # Language        : CPerl
-# Update Count    : 153
+# Update Count    : 154
 # Status          : Unknown, Use with caution!
 #
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -25,7 +25,7 @@ require Exporter;
 @ISA = qw(Exporter);
 @EXPORT = qw(server unspool);
 
-$VERSION = do{my @r=(q$Revision: 1.12 $=~/(\d+)/g);sprintf "%d."."%02d"x$#r,@r};
+$VERSION = do{my @r=(q$Revision: 1.13 $=~/(\d+)/g);sprintf "%d."."%02d"x$#r,@r};
 
 sub server {
   my %opt  = @_;
@@ -122,8 +122,9 @@ C<AUTHINFO> are implemented.
 Supported commands:
 
   ARTICLE, AUTHINFO, BODY, GROUP, HEAD, HELP, IHAVE, LAST, LIST,
-  MODE, NEWGROUPS, NEWNEWS, NEXT, POST, QUIT, SLAVE, STAT, XOVER
-  XHDR
+  MODE, NEWGROUPS, NEWNEWS, NEXT, POST, QUIT, SLAVE, STAT
+
+  XOVER, XHDR, LIST NEWSGROUPS ng-spec
   
 The main reason for writing this was to synchronize my mail directories
 across different hosts. The Mail directories are MH-Style with a F<.overview>

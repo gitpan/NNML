@@ -4,9 +4,9 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Sep 28 15:24:53 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Sat Mar 22 16:38:00 1997
+# Last Modified On: Mon Mar 31 09:19:23 1997
 # Language        : CPerl
-# Update Count    : 325
+# Update Count    : 331
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -173,14 +173,29 @@ sub cmd_quit {
 }
 
 sub cmd_list {
-  my $self = shift;
+  my $self  = shift;
 
-  $self->msg(215);
-  for ($ACTIVE->groups) {
-    $self->output(sprintf "%s %d %d %s\r\n",
-                  $_->name, $_->max, $_->min, $_->post)
+  if (@_) {
+    my $cmd   = shift;
+    my $match = shift;
+    
+    if ($cmd !~ /NEWSGROUPS/) {
+      $self->msg(500);
+      return;
+    }
+    $self->msg(215);
+    for ($ACTIVE->list_match($match)) {
+      $self->output($_->name, "\r\n");
+    }
+    $self->end;
+  } else {
+    $self->msg(215);
+    for ($ACTIVE->groups) {
+      $self->output(sprintf "%s %d %d %s\r\n",
+                    $_->name, $_->max, $_->min, $_->post)
+    }
+    $self->end;
   }
-  $self->end;
 }
 
 sub cmd_newgroups {
@@ -212,7 +227,7 @@ sub cmd_newnews {
       $msgid{$_} ||= $new{$_};
     }
   }
-  for (sort {$msgid{$b} <=> $msgid{$b}} keys %msgid) {
+  for (sort {$msgid{$a} <=> $msgid{$b}} keys %msgid) {
     $self->output($_, "\r\n");
   }
   $self->end;
@@ -250,7 +265,7 @@ sub cmd_xhdr {
   my $fld  = shift;
   my $fno  = $FLD{lc $fld};
   my $parm = shift;
-  my @range = ($parm =~ m/(\d+)-(\d+)/);
+  my @range = ($parm =~ m/(\d+)-(\d+)/ || ($parm, $parm));
   unless ($self->{_group}) {
     $self->msg(412);
     return;

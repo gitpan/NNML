@@ -1,3 +1,18 @@
+Mon Mar 31 08:00:00 1997 Ulrich Pfeifer <pfeifer@ls6.informatik.uni-dortmund.de> 
+
+	* NNML/Connection.pm: Sort message-id by increasing date for
+	  newnews.
+
+Sun Mar 30 20:00:00 1997 Ulrich Pfeifer <pfeifer@ls6.informatik.uni-dortmund.de> 
+
+	* nnmirror.PL: fixed sort order
+
+	* nnmirror.PL NNML/Connection.pm: added newnews emulation
+
+Mon Mar 24 10:00:00 1997 Ulrich Pfeifer <pfeifer@ls6.informatik.uni-dortmund.de> 
+
+	* Makefile.PL nnmirror.PL nnsync.PL overview.PL: Minor cleanup
+
 Sat Mar 22 16:00:00 1997 Ulrich Pfeifer <pfeifer@ls6.informatik.uni-dortmund.de> 
 
 	* nnsync.PL overview.PL NNML/Connection.pm NNML/Handle.pm: overview

@@ -36,9 +36,9 @@ print OUT <<'!NO!SUBS!';
 # Author          : Ulrich Pfeifer
 # Created On      : Sun Sep 29 11:50:11 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Mon Mar 24 11:00:10 1997
+# Last Modified On: Sun Mar 30 21:33:03 1997
 # Language        : CPerl
-# Update Count    : 82
+# Update Count    : 92
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -124,7 +124,9 @@ $to->slave();
 my $messages;
 
 unless ($messages = $from->newnews($time, $group)) {
-  die "Could not run newnews $group $time";
+  unless ($messages = my_newnews($from, $time, $group)) {
+    die "Could not run newnews $group $time";
+  }
 }
 
 my $togo   = scalar(@$messages);
@@ -157,7 +159,7 @@ foreach $msgid (@$messages) {
     }
   } elsif ($to->postok) {
     # We are not allowed to use IHAVE :-(
-    $IHAVE_ALLOWED = 0;
+    $IHAVE_ALLOWED = 0 if $to->code >= 400;
     unless ($to->head($msgid)) {
       # $to seems not to have it
       print STDERR "$togo: FETCH $msgid";
@@ -204,6 +206,37 @@ sub to_time {
   return $ltime;
 }
 
+sub my_newnews {
+  my($con, $time_bound, $group_pat) = @_;
+  my %result;
+  my @result;
+
+  #$con->debug(1);
+  require Date::Parse;
+
+  for my $pat (split ',', $group_pat) {
+    my $groups = $con->newsgroups($pat);
+    for my $group (keys %$groups) {
+      print "group: $group\n";
+      my ($count,$min,$max) = $con->group($group);
+    ARTICLE:
+      while ($max > $min) {
+        print "ARTICLE $max\n";
+        my $date = $con->xhdr('Date', $max);
+        my $time = Date::Parse::str2time($date->{$max});
+        last ARTICLE if $time < $time_bound;
+        my $msg  = $con->xhdr('Message-Id', $max);
+        $result{$msg->{$max}}= $time;
+        $max--;
+      }
+    }
+  }
+  for (sort {$result{$a} <=> $result{$b}} keys %result) {
+    push @result, $_;
+  }
+  #$con->debug(0);
+  \@result;
+}
 __END__
 
 
