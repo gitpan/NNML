@@ -5,9 +5,9 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Mon Sep 30 08:49:41 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Mon Sep 30 13:21:30 1996
+# Last Modified On: Tue Oct  1 08:20:38 1996
 # Language        : CPerl
-# Update Count    : 19
+# Update Count    : 20
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -55,7 +55,7 @@ sub perm {
     # just paranoid
     return 0;
   }
-  if ($command =~ /SHUT/i) {
+  if ($command =~ /SHUT|CREATE/i) {
     return $PERM{$con->{_user}}->{'admin'};
   }
   if ($command =~ /POST|IHAVE/i) {

@@ -4,59 +4,64 @@ NAME
 SYNOPSIS
        perl -MNNML::Server -e 'server()'
 
-
 DESCRIPTION
      NNML::Server server implements a minimal NNTP server. It is
-     (hope-)fully conformant to rfc977. In addition the commands XOVER
-     and AUTHINFO are implemented.
+     (hope-) fully conformant to rfc977. In addition the commands
+     XOVER and AUTHINFO are implemented.
 
      Supported commands:
 
-       ARTICLE,	AUTHINFO, BODY,	GROUP, HEAD, HELP, IHAVE, LAST,	LIST,
-       MODE, NEWGROUPS,	NEWNEWS, NEXT, POST, QUIT, SLAVE, STAT, XOVER
+       ARTICLE, AUTHINFO, BODY, GROUP, HEAD, HELP, IHAVE, LAST, LIST,
+       MODE, NEWGROUPS, NEWNEWS, NEXT, POST, QUIT, SLAVE, STAT, XOVER
 
      The main reason for writing this was to synchronize my mail
-     directories across	different hosts. The Mail directories are
+     directories across different hosts. The Mail directories are
      MH-Style with a .overview file in each folder and a active
-     file in the base directory. These	are maintained by the
-     Emacs Gnus	backend	NNML. To get started, you can
-     generate/update this files	using the overview program. Upon
-     POST and IHAVE commands this files	will also be updated.
+     file in the base directory. These are maintained by the
+     Emacs Gnus backend NNML. To get started, you can
+     generate/update this files using the overview program. Upon
+     POST and IHAVE commands this files will also be updated.
 
-     To	start from scratch use:
+     To start from scratch use:
 
        touch /tmp/active;
        perl -MNNML::Server -e 'server(base => "/tmp", port => 3000)'
 
-     To	export your mh-Mail use:
+     To export your mh-Mail use:
 
        perl overview -base ~/Mail
        perl -MNNML::Server -e 'server(base => "$ENV{HOME}/Mail", port => 3000)'
 
-     The command POST and IHAVE	honour the Newsgroups header if
-     not overwritten by	the X-Nnml-Groups header. Articles will
-     contain an	appropriate X-Nnml-Groups header when retrieved.
+     The command POST and IHAVE honour the Newsgroups header if
+     not overwritten by the X-Nnml-Groups header. Articles will
+     contain an appropriate X-Nnml-Groups header when retrieved
+     by message-id.
 
 AUTHORIZATION
-     To	enable access restrictions use:
+     To enable access restrictions use:
 
-       perl -MNNML::Auth -e "NNML:Auth::add_user($ENV{LOGANME},	'passwd', \
-	 'read', 'write', 'admin')"
+       perl -MNNML::Auth -e "NNML::Auth::add_user($ENV{LOGANME}, 'passwd', \
+         'read', 'write', 'admin')"
 
-     If	basef</passwd> exists, three levels of authorization are
+     If base/passwd exists, three levels of authorization are
      recognized:
 
      admin     Users with permission admin may shut down the
-	       server using SHUT.
+               server using SHUT.  Also these users may create
+               new groups simply by posting to them.
 
      write     Users with permission write may use the POST and
-	       IHAVE commands.
+               IHAVE commands.
 
-     read      All other commands require the b<read> permission.
+     read      All other commands require the read permission.
 
 BUGS
-     The server	handles	multiple connections in	a single thread.
-     So	a hung POST or IHAVE will block	all connections.
+     The server handles multiple connections in a single thread.
+     So a hung POST or IHAVE would block all connections.
+     Therfore a post request is interrupted if the server could
+     not read some bytes for 10 seconds. The Client is notified
+     by message 441. If the client continues to send the article,
+     it is interpreted by the command loop.
 
 SEE ALSO
      The overview(1) and nnmirror(1) manpages.

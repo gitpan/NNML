@@ -4,9 +4,9 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Sep 28 16:33:51 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Sun Sep 29 12:51:19 1996
+# Last Modified On: Tue Oct  1 08:20:21 1996
 # Language        : CPerl
-# Update Count    : 30
+# Update Count    : 31
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -31,13 +31,13 @@ sub new {
   bless $self, $type;
 }
 
-sub max   { $_[0]->_update; $_[0]->{_max}};
-sub min   { $_[0]->_update; $_[0]->{_min}};
-sub name  { $_[0]->_update; $_[0]->{_name}};
-sub post  { $_[0]->_update; $_[0]->{_post}};
-sub ctime { $_[0]->_update; $_[0]->{_ctime}};
-sub add   { $_[0]->_update; $_[0]->{_max}++; $_[0]->{_max}}
-sub dir   { $_[0]->_update; $_[0]->{_dir}};
+sub max   { $_[0]->{_max}};
+sub min   { $_[0]->{_min}};
+sub name  { $_[0]->{_name}};
+sub post  { $_[0]->{_post}};
+sub ctime { $_[0]->{_ctime}};
+sub add   { $_[0]->{_max}++; $_[0]->{_max}}
+sub dir   { $_[0]->{_dir}};
 
 
 sub article_by_id {

@@ -40,7 +40,7 @@ eval 'exec perl -S $0 "$@"'
 # Author          : Ulrich Pfeifer
 # Created On      : Sun Sep 29 11:50:11 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Mon Sep 30 11:16:23 1996
+# Last Modified On: Tue Oct  1 08:20:03 1996
 # Language        : CPerl
 # Update Count    : 30
 # Status          : Unknown, Use with caution!

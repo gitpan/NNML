@@ -4,9 +4,9 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Sep 28 14:15:22 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Sun Sep 29 11:10:16 1996
+# Last Modified On: Tue Oct  1 08:26:41 1996
 # Language        : CPerl
-# Update Count    : 64
+# Update Count    : 65
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -140,14 +140,15 @@ sub list_match {
 }
 
 sub accept_article {
-  my ($self, $header, $head, $body, @groups) = @_;
+  my ($self, $header, $head, $body, $create, @groups) = @_;
   my $group;
   my $afile;
+  my $any_group = 0;
   
   $self->_update;
   for $group (@groups) {
     unless (exists $GROUP{$group}) {
-      # Create a new group. Should check for authorisation here!
+      next unless $create;      # no permission to create group
       my $dir = $group;
       $dir =~ s:\.:/:g;
       $dir = $CONF->base . '/' . $dir;
@@ -207,8 +208,9 @@ sub accept_article {
       $fh->print($head, "\n", $body);
       $fh->close;
     }
+    $any_group++;               # we posted to one group atleast
   }
-  $self->_write_active;
+  return $self->_write_active || $any_group;
 }
 
 1;

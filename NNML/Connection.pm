@@ -4,9 +4,9 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Sep 28 15:24:53 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Mon Sep 30 11:56:25 1996
+# Last Modified On: Tue Oct  1 08:51:55 1996
 # Language        : CPerl
-# Update Count    : 142
+# Update Count    : 152
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -21,6 +21,8 @@ use Time::Local;
 use Socket;
 use strict;
 use Sys::Hostname;
+use IO::Select;
+
 require NNML::Auth;
 
 use vars qw(%ACMD %CMD %MSG %HELP);
@@ -399,15 +401,20 @@ sub accept_article {
   my $art   = '';
   my $block = '';
   my $retries = 9;
-  while ($art !~ /\r?\n\.\r?\n$/) {
-    #print STDERR "[$block]";
+  my $got_alarm = 0;
+
+  my $sel = new IO::Select( $fh );
+  while ($sel->can_read(10)) {
     if ($fh->sysread($block, 512)) {
       $art .= $block;
-    } else {
-      last if $retries -- < 0;
-      print STDERR "Waiting \n";
-      sleep(1);
+      last if $art =~ /\r?\n\.\r?\n$/;
     }
+  }
+
+  unless ($art =~ /\r?\n\.\r?\n$/) {
+    print "accept_article() timed out\n";
+    $self->msg(441);
+    return;
   }
   $art =~ s/\r//g;
   $art =~ s/.\n$//;
@@ -449,7 +456,8 @@ sub accept_article {
     $self->msg(441);
     return;
   }
-  unless ($ACTIVE->accept_article(\%head, $head, $body, @newsgroups)) {
+  my $create = NNML::Auth::perm($self,'create');
+  unless ($ACTIVE->accept_article(\%head, $head, $body, $create, @newsgroups)) {
     $self->msg(441);
     return;
   }

@@ -4,9 +4,9 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Sep 28 13:53:36 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Mon Sep 30 13:14:29 1996
+# Last Modified On: Tue Oct  1 09:29:35 1996
 # Language        : CPerl
-# Update Count    : 71
+# Update Count    : 79
 # Status          : Unknown, Use with caution!
 #
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -26,7 +26,7 @@ require Exporter;
 @ISA = qw(Exporter);
 @EXPORT = qw(server);
 
-$VERSION = do{my @r=(q$Revision: 1.04 $=~/(\d+)/g);sprintf "%d."."%02d"x$#r,@r};
+$VERSION = do{my @r=(q$Revision: 1.05 $=~/(\d+)/g);sprintf "%d."."%02d"x$#r,@r};
 
 sub server {
   my %opt  = @_;
@@ -35,7 +35,7 @@ sub server {
   if (exists $opt{base}) {
     $CONF->base($opt{base});
   }
-  my $lsn  = new IO::Socket::INET(Listen    => 1,
+  my $lsn  = new IO::Socket::INET(Listen    => 5,
                                   LocalPort => $port,
                                   Proto     => 'tcp');
   die "Could not connect to port $port" unless defined $lsn;
@@ -136,22 +136,23 @@ To export your mh-Mail use:
 
 The command B<POST> and B<IHAVE> honour the C<Newsgroups> header B<if>
 not overwritten by the C<X-Nnml-Groups> header. Articles will contain
-an appropriate C<X-Nnml-Groups> header when retrieved.
+an appropriate C<X-Nnml-Groups> header when retrieved by message-id.
 
 =head1 AUTHORIZATION
 
 To enable access restrictions use:
 
-  perl -MNNML::Auth -e "NNML:Auth::add_user($ENV{LOGANME}, 'passwd', \
+  perl -MNNML::Auth -e "NNML::Auth::add_user($ENV{LOGANME}, 'passwd', \
     'read', 'write', 'admin')"
 
-If I<base>f</passwd> exists, three levels of authorization are recognized:
+If I<base>F</passwd> exists, three levels of authorization are recognized:
 
 =over 10
 
 =item B<admin>
 
 Users with permission B<admin> may shut down the server using C<SHUT>.
+Also these users may create new groups simply by posting to them.
 
 =item B<write>
 
@@ -159,12 +160,15 @@ Users with permission B<write> may use the B<POST> and B<IHAVE> commands.
 
 =item B<read>
 
-All other commands require the b<read> permission.
+All other commands require the B<read> permission.
 
 =head1 BUGS
 
 The server handles multiple connections in a single thread. So a hung
-C<POST> or C<IHAVE> will block all connections.
+C<POST> or C<IHAVE> would block all connections. Therfore a post
+request is interrupted if the server could not read some bytes for 10
+seconds. The Client is notified by message 441. If the client
+continues to send the article, it is interpreted by the command loop.
 
 =head1 SEE ALSO
 
