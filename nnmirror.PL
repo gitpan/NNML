@@ -1,5 +1,5 @@
-#!/usr/local/bin/perl
-
+#!/app/unido-i06/magic/perl
+#                              -*- Mode: Perl -*- 
 use Config;
 use File::Basename qw(&basename &dirname);
 
@@ -25,24 +25,18 @@ print "Extracting $file (with variable substitutions)\n";
 # You can use $Config{...} to use Configure variables.
 
 print OUT <<"!GROK!THIS!";
-$Config{'startperl'}
+$Config{'startperl'} 
 !GROK!THIS!
-
-# In the following, perl variables are not expanded during extraction.
-
 print OUT <<'!NO!SUBS!';
-eval 'exec perl -S $0 "$@"'
-    if 0;
-
 #                              -*- Mode: Perl -*- 
 # nnmirror -- 
 # ITIID           : $ITI$ $Header $__Header$
 # Author          : Ulrich Pfeifer
 # Created On      : Sun Sep 29 11:50:11 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Tue Oct  1 08:20:03 1996
+# Last Modified On: Mon Oct  7 09:19:00 1996
 # Language        : CPerl
-# Update Count    : 30
+# Update Count    : 41
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -50,22 +44,36 @@ eval 'exec perl -S $0 "$@"'
 # $Locker$
 # $Log$
 # 
+!NO!SUBS!
 
+# In the following, perl variables are not expanded during extraction.
+
+print OUT <<'!NO!SUBS!';
+        
+eval 'exec perl -S $0 "$@"'
+    if 0;
+        
+eval 'exec perl -S $0 "$@"'
+    if 0;
+
+BEGIN {$0 = 'nnmirror ....'; }
 use Getopt::Long;
 use Time::Local;
 require News::NNTPClient;
+use NNML::Config qw($Config);
 use strict;
 use vars qw(%OPT);
-
+sleep 100;
 %OPT = (
-        fhost => 'localhost',
-        fport => 3000,
-        thost => 'localhost',
-        tport => 3002,
-        tuser => $ENV{LOGNAME},
-        fuser => $ENV{LOGNAME},
-        tpass => '',
-        fpass => '',
+        fhost   => $Config->mirror_host,
+        fpass   => $Config->remote_passwd,
+        fport   => $Config->mirror_port,
+        fuser   => $Config->remote_user,
+        thost   => 'localhost',
+        tpass   => $Config->local_passwd,
+        tport   => $Config->port,
+        tuser   => $Config->local_user,
+        timeout => $Config->mirror_timeout,
        );
 
 GetOptions(\%OPT,
@@ -80,11 +88,28 @@ GetOptions(\%OPT,
            'tpass=s',
            'fpass=s',
            'group=s@',
+           'only=s',
+           'ignore=s',
+           'timeout=i',
+           'reverse!',
+           'verbose!',
           ) or die;
 
+$Config->timeout($OPT{timeout});
+
+if ($OPT{'reverse'}) {
+  @OPT{qw(fhost fpass fport fuser thost tpass tport tuser)} =
+    @OPT{qw(thost tpass tport tuser fhost fpass fport fuser)};
+}
+if ($OPT{verbose}) {
+  for (keys %OPT) {
+    printf "%-15s = %s\n", $_, $OPT{$_};
+  }
+}
+exit;
 my $time;
 if (exists $OPT{date}) {
-  $time = to_time($OPT{date}, $OPT{time})
+  $time = to_time($OPT{date}, $OPT{'time'})
 } else {
   $time = time - 3600 * 24;
 }
@@ -107,12 +132,23 @@ if ($OPT{fpass}) {
 }
 die unless defined $from and defined $to;
 
+# Check if we can use gzip mode
+if ($to->command("MODE GZIP")) {
+  $from->command("MODE GZIP");
+}
+
+my @msgid = $from->newnews($group, $time);
+my $togo = scalar(@msgid );
 my $msgid;
-foreach $msgid ($from->newnews($group, $time)) {
+
+foreach $msgid (@msgid) {
+  $togo--;
   chomp($msgid);
-  next unless $msgid;
+  next unless $msgid;           # sanity check
+  next if exists $OPT{ignore} and $msgid =~ /$OPT{ignore}/o;
+  next if exists $OPT{only}   and $msgid !~ /$OPT{only}/o;
   if ($to->command("IHAVE $msgid")) {
-    print STDERR "FETCH $msgid";
+    print STDERR "$togo: FETCH $msgid";
     my @art = $from->article($msgid);
     printf STDERR " %d lines ", scalar(@art);
     @art = ('head', '', 'body') unless @art;
@@ -174,6 +210,9 @@ B<nnmirror>
 [B<-tpass> I<passwd>]
 [B<-date>  I<yymmdd>]
 [B<-time>  I<hhmmss>]
+[B<-reverse>]
+[B<-only> I<regexp>]
+[B<-ignore> I<regexp>]
 [B<-group> I<group expression>] ...
 
 =head1 DESCRIPTION
@@ -184,21 +223,59 @@ the C<NEWNEWS> command. For each returned message-id, the B<TO> server
 is asked using C<IHAVE>. If B<TO> wants the article, it is fetched
 from B<FROM> and forwarded to B<TO>.
 
+With respect to the configuration, the I<"normal"> oeration is polling
+from a remote server. It you specify B<-reverse> the roles of the are
+reversed and an upload is perlformed. For uploading to a real NNTP
+server you should use the B<-only> I<regexp> option with an rexexp,
+which matches the message ids your system generates.
+
+
 The date/time for the B<NEWNEWS> command defaults to the current time
 minus one day.
 
 After connecting the servers, an B<AUTHHINFO> request is send if the
-options B<-fpasswd> or B<-tpasswd> are given. The B<-tuser> and
-B<-fuser> options default to C<$ENV{LOGNAME}>.
+options B<-fpasswd> or B<-tpasswd> are given.
 
 =head1 EXAMPLES
 
- nnmirror -fhost $NNTPSERVER -fport 119 -thost localhost -tport 9000 \
-   -group comp.lang.perl.\* -group \!\*misc
+Assuming you are at your linux box 'C<hobbit>' at home. Your box in
+the office is called 'C<sun44>', your NNTP-Server 'B<news>'. On
+'C<sun44>' you have a NNML server running on port 3000 with user
+'C<lwall>' passwd 'C<foo>'. On your linux box, you run the NNML server
+at port 2000 without authorisation.
+
+=head2 Fetch mail from office
+
+  nnmirror -fhost sun44 -fport 3000 -fuser lwall -fpasswd foo \
+           -thost localhost -fpasswd '' -tport 2000
+
+=head2 Write back the carbon copies you generated
+
+  nnmirror -fhost sun44 -fport 3000 -fuser lwall -fpasswd foo \
+           -thost localhost -fpasswd '' -tport 2000 \
+           -reverse -only /hhobbit/
+
+=head2 Get some news from the NNTP server
+
+  nnmirror -fhost news -fport 119 -fpasswd '' \
+           -thost localhost -fpasswd '' -tport 2000 \
+           -group comp.lang.perl.* -group \!*.misc
+
+=head2 Forward your postings
+
+  nnmirror -fhost news -fport 119 -fpasswd '' \
+           -thost localhost -fpasswd '' -tport 2000 \
+           -reverse -only /hobbit/
+
+For real use, you may better set the right defaults during
+configuration and only give the passwords n the command line.
 
 =head1 AUTHOR
 
 Ulrich Pfeifer E<lt>F<pfeifer@ls6.informatik.uni-dortmund.de>E<gt>
+
+
+
 !NO!SUBS!
 
 close OUT or die "Can't close $file: $!";

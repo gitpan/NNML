@@ -4,9 +4,9 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Sep 28 15:24:53 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Wed Oct  2 15:27:31 1996
+# Last Modified On: Mon Oct  7 09:21:26 1996
 # Language        : CPerl
-# Update Count    : 197
+# Update Count    : 200
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -16,6 +16,7 @@
 # 
 package NNML::Connection;
 use NNML::Active qw($ACTIVE);
+use NNML::Config qw($Config);
 use Text::Abbrev;
 use Time::Local;
 use Socket;
@@ -454,7 +455,7 @@ sub accept_article {
   my $got_alarm = 0;
 
   my $sel = new IO::Select( $fh );
-  while ($sel->can_read(30)) {
+  while ($sel->can_read($Config->timeout)) {
     if ($fh->sysread($block, 512)) {
       $art .= $block;
       last if $art =~ /\r?\n\.\r?\n$/;

@@ -4,9 +4,9 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Sep 28 13:53:36 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Wed Oct  2 15:27:14 1996
+# Last Modified On: Sat Oct  5 17:59:33 1996
 # Language        : CPerl
-# Update Count    : 82
+# Update Count    : 85
 # Status          : Unknown, Use with caution!
 #
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -18,7 +18,7 @@
 package NNML::Server;
 use vars qw($VERSION @ISA @EXPORT);
 use NNML::Connection;
-use NNML::Config qw($CONF);
+use NNML::Config qw($Config);
 use IO::Socket;
 use IO::Select;
 use strict;
@@ -26,18 +26,18 @@ require Exporter;
 @ISA = qw(Exporter);
 @EXPORT = qw(server);
 
-$VERSION = do{my @r=(q$Revision: 1.06 $=~/(\d+)/g);sprintf "%d."."%02d"x$#r,@r};
+$VERSION = do{my @r=(q$Revision: 1.07 $=~/(\d+)/g);sprintf "%d."."%02d"x$#r,@r};
 
 sub server {
   my %opt  = @_;
   my $port = $opt{port} || 3000;
 
   if (exists $opt{base}) {
-    $CONF->base($opt{base});
+    $Config->base($opt{base});
   }
   NNML::Auth::_update;          # just for the message
   my $lsn  = new IO::Socket::INET(Listen    => 5,
-                                  LocalPort => $port,
+                                  LocalPort => $Config->port,
                                   Proto     => 'tcp');
   die "Could not connect to port $port" unless defined $lsn;
   my $SEL  = new IO::Select( $lsn );

@@ -5,9 +5,9 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Mon Sep 30 08:49:41 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Wed Oct  2 21:21:59 1996
+# Last Modified On: Sat Oct  5 16:15:41 1996
 # Language        : CPerl
-# Update Count    : 27
+# Update Count    : 28
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -17,7 +17,7 @@
 # 
 
 package NNML::Auth;
-use NNML::Config qw($CONF);
+use NNML::Config qw($Config);
 use IO::File;
 use strict;
 
@@ -28,13 +28,13 @@ my (%PASSWD, %PERM);
 
 sub _update {
   my $norestriction = $NORESTRICTION; 
-  if (-e $CONF->passwd) {
-    if ($PASSWD ne $CONF->passwd
-        or (stat($CONF->passwd))[9] > $TIME) {
-      $PASSWD = $CONF->passwd;
-      $TIME = (stat($CONF->passwd))[9];
+  if (-e $Config->passwd) {
+    if ($PASSWD ne $Config->passwd
+        or (stat($Config->passwd))[9] > $TIME) {
+      $PASSWD = $Config->passwd;
+      $TIME = (stat($Config->passwd))[9];
       
-      my $fh = new IO::File '< ' . $CONF->passwd;
+      my $fh = new IO::File '< ' . $Config->passwd;
       if (defined $fh) {
         local ($_);
         while (<$fh>) {
@@ -100,12 +100,12 @@ sub add_user {
 
   my $salt = $cs[rand(64)] . $cs[rand(64)];
   my $cpasswd = crypt($passwd, $salt);
-  my $fh = new IO::File '>>' . $CONF->passwd;
+  my $fh = new IO::File '>>' . $Config->passwd;
   if (defined $fh) {
     $fh->print("$user $cpasswd @perm\n");
     $fh->close;
   } else {
-    print "Could not write '%s': $!\n", $CONF->passwd;
+    print "Could not write '%s': $!\n", $Config->passwd;
     return 0;
   }
   return 1;

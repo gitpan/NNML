@@ -4,9 +4,9 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Sep 28 14:15:22 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Wed Oct  2 15:28:08 1996
+# Last Modified On: Sat Oct  5 16:15:41 1996
 # Language        : CPerl
-# Update Count    : 66
+# Update Count    : 67
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -23,7 +23,7 @@ require Exporter;
 @ISA = qw(Exporter);
 @EXPORT_OK = qw($ACTIVE);
 
-use NNML::Config qw($CONF);
+use NNML::Config qw($Config);
 use NNML::Group;
 use IO::File;
 use File::Path;
@@ -38,7 +38,7 @@ sub _read_active {
   %GROUP  = ();
   $TIME   = time;
 
-  my $fh = new IO::File "<" . $CONF->active;
+  my $fh = new IO::File "<" . $Config->active;
   die "Could not read active file" unless defined $fh;
   my $line;
   while (defined ($line = <$fh>)) {
@@ -46,7 +46,7 @@ sub _read_active {
     my ($group, $max, $min, $post) = split ' ', $line;
     my $dir = $group;
     $dir =~ s:\.:/:g;
-    $dir = $CONF->base . '/' . $dir;
+    $dir = $Config->base . '/' . $dir;
     if (-e $dir) {
       my $ctime = (stat($dir))[10];
       $GROUP{$group} = NNML::Group->new(name  => $group,
@@ -61,7 +61,7 @@ sub _read_active {
 }
 
 sub _write_active {
-  my $active = $CONF->active;
+  my $active = $Config->active;
 
   unless (rename $active, "$active~") {
     print "Could not backup '$active': $!\n";
@@ -82,7 +82,7 @@ sub _write_active {
 }
 
 sub _update {
-  my $mtime = (stat($CONF->active))[9];
+  my $mtime = (stat($Config->active))[9];
   _read_active if $mtime > $TIME;
 }
 
@@ -151,7 +151,7 @@ sub accept_article {
       next unless $create;      # no permission to create group
       my $dir = $group;
       $dir =~ s:\.:/:g;
-      $dir = $CONF->base . '/' . $dir;
+      $dir = $Config->base . '/' . $dir;
       unless (-d $dir) {
         unless (mkpath($dir,1,0700)) {
           print "Could not mkpath($dir).\n";
