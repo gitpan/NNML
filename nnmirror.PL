@@ -43,6 +43,9 @@ eval 'exec perl  -S $0 "$@"'
 eval 'exec perl  -S $0 "$@"'
     if 0;
 
+eval 'exec perl  -S $0 "$@"'
+    if 0;
+
 #                              -*- Mode: Perl -*- 
 # nnmirror -- 
 # ITIID           : $ITI$ $Header $__Header$

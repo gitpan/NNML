@@ -4,9 +4,9 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Sep 28 13:53:36 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Tue Mar  4 12:19:03 1997
+# Last Modified On: Thu Mar 20 16:52:38 1997
 # Language        : CPerl
-# Update Count    : 125
+# Update Count    : 126
 # Status          : Unknown, Use with caution!
 #
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -24,7 +24,7 @@ require Exporter;
 @ISA = qw(Exporter);
 @EXPORT = qw(server unspool);
 
-$VERSION = '1.10';
+$VERSION = '1.11';
 
 sub server {
   my %opt  = @_;

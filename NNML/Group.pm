@@ -4,9 +4,9 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Sep 28 16:33:51 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Thu Feb 27 16:37:12 1997
+# Last Modified On: Sat Mar 15 13:44:15 1997
 # Language        : CPerl
-# Update Count    : 54
+# Update Count    : 58
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -149,17 +149,9 @@ sub get {
     my $date = ((stat($file))[10]);
     my $fh = new IO::File "<" . $file;
     return unless $fh;
-    my $head = '';
-    my $body = '';
-    my $line;
-    
-    while (defined ($line = <$fh>)) {
-      last if $line =~ /^$/;
-      $head .= $line;
-    }
-    while (defined ($line = <$fh>)) {
-      $body .= $line;
-    }
+    local($/);
+
+    my ($head, $body) = split /^\r?\n/m, <$fh>, 2;
     return $head, $body, $date;
   }
 }

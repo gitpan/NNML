@@ -40,6 +40,9 @@ eval 'exec perl  -S $0 "$@"'
 eval 'exec perl  -S $0 "$@"'
     if 0;
 
+eval 'exec perl  -S $0 "$@"'
+    if 0;
+
 #                              -*- Mode: Perl -*- 
 # nnml.pl -- 
 # ITIID           : $ITI$ $Header $__Header$

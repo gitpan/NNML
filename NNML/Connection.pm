@@ -4,9 +4,9 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Sep 28 15:24:53 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Fri Feb 28 10:21:26 1997
+# Last Modified On: Sat Mar 15 13:49:56 1997
 # Language        : CPerl
-# Update Count    : 323
+# Update Count    : 324
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -604,10 +604,11 @@ sub inject_article {
               newsgroups      => '',
              );
   my $header;
-  
-  $art =~ s/.\r?\n$//;
-  $art =~ s/\r//g;
-  $art =~ s/^\.\././mg;
+
+  # done by Net::Cmd now
+  #$art =~ s/\.\r?\n$//;
+  #$art =~ s/\r//g;
+  #$art =~ s/^\.\././mg;
 
   my ($head, $body) = split /^$/m, $art, 2;
 

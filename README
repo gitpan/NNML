@@ -7,9 +7,9 @@ SYNOPSIS
 
 
 DESCRIPTION
-    NNML::Server server implements a minimal NNTP server. It is (hope-) fully
-    conformant to rfc977. In addition the commands `XOVER' and `AUTHINFO' are
-    implemented.
+    NNML::Server server implements a minimal NNTP server. It is (hope-)
+    fully conformant to rfc977. In addition the commands `XOVER' and
+    `AUTHINFO' are implemented.
 
     Supported commands:
 
@@ -38,19 +38,20 @@ DESCRIPTION
       perl -MNNML::Server -e 'server(base => "$ENV{HOME}/Mail", port => 3000)'
 
 
-    The command POST and IHAVE honour the `Newsgroups' header if not overwritten
-    by the `X-Nnml-Groups' header. Articles will contain an appropriate `X-Nnml-
-    Groups' header when retrieved by message-id.
+    The command POST and IHAVE honour the `Newsgroups' header if not
+    overwritten by the `X-Nnml-Groups' header. Articles will contain an
+    appropriate `X-Nnml-Groups' header when retrieved by message-id.
 
-    When the client submits the `SLAVE' command, all forther post requests are
-    spooled in `$Config-'spool> (usually ~/Mail/NNML.spool) for performance
-    reasons. You can process the spooled articles by submitting the `XUNSPOOL'
-    command or by calling
+    When the client submits the `SLAVE' command, all forther post requests
+    are spooled in `$Config-'spool> (usually ~/Mail/NNML.spool) for
+    performance reasons. You can process the spooled articles by submitting
+    the `XUNSPOOL' command or by calling
 
       perl -MNNML::Server -e unspool
 
 
-    Rejected articles will be saven in `$Config-'bad> (usually ~/Mail/NNML.bad)
+    Rejected articles will be saven in `$Config-'bad> (usually
+    ~/Mail/NNML.bad)
 
 AUTHORIZATION
     To enable access restrictions use:
@@ -61,28 +62,29 @@ AUTHORIZATION
 
     If *base*/passwd exists, three levels of authorization are recognized:
 
-    admin     Users with permission admin may shut down the server using `SHUT'. Also
-              these users may create new groups simply by posting to them.
-              Permission admin is also required for the `XUNSPOOL' command.
+    admin     Users with permission admin may shut down the server using `SHUT'.
+              Also these users may create new groups simply by posting to
+              them. Permission admin is also required for the `XUNSPOOL'
+              command.
 
     write     Users with permission write may use the POST and IHAVE commands.
 
     read      All other commands require the read permission.
 
 FEATURES
-              Version 1.06 implements the `MODE GZIP' command. After submiting
-              this commands, all articles, heads and bodies will be piped through
-              `gzip -cf | mimencode'. The server will recognize post requeste
-              using the same pipe automatically. This will speed up nnmirror if
-              the line is sufficiant slow.
+              Version 1.06 implements the `MODE GZIP' command. After
+              submiting this commands, all articles, heads and bodies will
+              be piped through `gzip -cf | mimencode'. The server will
+              recognize post requeste using the same pipe automatically.
+              This will speed up nnmirror if the line is sufficiant slow.
 
 BUGS
-              The server handles multiple connections in a single thread. So a
-              hung `POST' or `IHAVE' would block all connections. Therfore a post
-              request is interrupted if the server could not read any bytes for
-              30 seconds. The Client is notified by message 441. If the client
-              continues to send the article, it is interpreted by the command
-              loop.
+              The server handles multiple connections in a single thread. So
+              a hung `POST' or `IHAVE' would block all connections. Therfore
+              a post request is interrupted if the server could not read any
+              bytes for 30 seconds. The Client is notified by message 441.
+              If the client continues to send the article, it is interpreted
+              by the command loop.
 
 SEE ALSO
               The overview(1) and nnmirror(1) manpages.

@@ -40,15 +40,18 @@ eval 'exec perl -w -S $0 "$@"'
 eval 'exec perl -w -S $0 "$@"'
     if 0;
 
+eval 'exec perl -w -S $0 "$@"'
+    if 0;
+
 #                              -*- Mode: Perl -*- 
 # mm -- 
 # ITIID           : $ITI$ $Header $__Header$
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Nov  2 17:28:28 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Fri Feb 21 17:15:16 1997
+# Last Modified On: Tue Mar  4 18:53:04 1997
 # Language        : CPerl
-# Update Count    : 81
+# Update Count    : 82
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -109,7 +112,15 @@ while (defined ($job = <$cf>)) {
     }
     if      ($cmd eq 'from') {
       @job{qw(fhost fuser fpass fport only)} = @fld;
-      delete $job{only} unless $job{only};
+
+      if ($job{only}) {
+        if ($job{only} =~ s/^!//) {
+          $job{ignore} = $job{only};
+          delete $job{only};
+        }
+      } else {
+        delete $job{only};
+      }
     } elsif ($cmd eq 'to') {
       @job{qw(thost tuser tpass tport)} = @fld;
     } elsif ($cmd eq '*') {
