@@ -4,9 +4,9 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Sep 28 16:33:51 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Tue Oct  1 10:18:00 1996
+# Last Modified On: Thu Oct 17 11:36:18 1996
 # Language        : CPerl
-# Update Count    : 32
+# Update Count    : 42
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -146,6 +146,34 @@ sub get {
     }
     return $head, $body;
   }
+}
+
+sub delete {
+  my ($self, $ano) = @_;
+  my $file = $self->{_dir} . "/$ano";
+  my ($result, $line);
+  
+  if (-e $file) {
+    unlink $file or return;
+  }
+  my $overview = $self->overview;
+  my $backup   = $self->overview . '~';
+  rename ($overview, $backup) or return;
+  my $in  = new IO::File "<" . $backup;
+  my $out = new IO::File ">" . $overview;
+  return unless $in and $out;
+  while (defined ($line = <$in>)) {
+    if ($line =~ /^(\d+)/) {
+      if ($1 == $ano) {
+        $result++;
+        next;
+      }
+    }
+    $out->print($line);
+  }
+  $in->close;
+  $out->close;
+  return($result);
 }
 
 1;

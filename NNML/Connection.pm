@@ -4,9 +4,9 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Sep 28 15:24:53 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Mon Oct  7 09:21:26 1996
+# Last Modified On: Thu Oct 17 12:02:12 1996
 # Language        : CPerl
-# Update Count    : 200
+# Update Count    : 234
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -243,7 +243,7 @@ sub cmd_newgroups {
     return;
   }
   # print "[$date] ($year,$mon,$mday,$hours,$min,$sec)\n $ltime\n";
-  $self->msg(235);
+  $self->msg(231);
   for ($ACTIVE->newgroups($ltime)) {
      $self->{_fh}->print($_, "\r\n");
   }
@@ -325,6 +325,7 @@ sub cmd_last {
 
 sub cmd_slave {
   my $self = shift;
+  $self->{timeout} = $Config->mirror_timeout;
   $self->msg(202);
 }
 
@@ -349,6 +350,83 @@ sub cmd_stat {
   }
   $self->msg(223, $self->{_article},
              $self->{_group}->article_by_no($self->{_article}))
+}
+
+sub cmd_xdelete {
+  my $self = shift;
+  my $ano  = shift || $self->{_article};
+
+  unless (defined $ano) {
+    $self->msg(501);
+    return;
+  }
+  unless ($self->{_group}) {
+    $self->msg(412);
+    return;
+  }
+  if ($self->{_group}->delete($ano)) {
+    $self->msg(285);
+  } else {
+    $self->msg(485);
+  }
+}
+
+sub cmd_xdeletegroup {
+  my $self = shift;
+
+  unless ($self->{_group}) {
+    $self->msg(412);
+    return;
+  }
+  if ($ACTIVE->delete_group($self->{_group}->name)) {
+    $self->msg(286);
+  } else {
+    $self->msg(486);
+  }
+}
+
+sub cmd_xmovefrom {
+  my $self = shift;
+  my $ano  = shift || $self->{_article};
+
+  unless ($self->{_group}) {
+    $self->msg(412);
+    return;
+  }
+
+  unless ($ano) {
+    $self->msg(420);
+    return;
+  }
+
+  my ($head, $body) = $self->{_group}->get($ano);
+  unless ($head) {
+    $self->msg(423);
+    return;
+  }
+  unless ($self->{_group}->delete($ano)) {
+    $self->msg(285);
+    return;
+  }
+  my ($msgid) = ($head =~ /^Message-Id:\s*(<\S+>)/m);
+  $self->msg(220,$ano, $msgid);
+  $self->output_gz($head, "\n", $body);
+}
+
+sub cmd_xaccept {
+  my $self = shift;
+
+  unless ($self->{_group}) {
+    $self->msg(412);
+    return;
+  }
+  
+  unless ($self->post) {
+    $self->msg(440);
+    return;
+  }
+  $self->msg(340);
+  $self->accept_article(undef,$self->{_group}->name);
 }
 
 sub cmd_article { my $self = shift; $self->article('article', join ' ', @_)};
@@ -386,7 +464,16 @@ sub article {
     }
 
     my ($head, $body) = $self->{_group}->get($ano);
-    my ($msgid) = ($head =~ /^Message-Id:\s*(<\S+>)/m);
+    my ($msgid) = ($head =~ /^Message-Id:\s*(<\S+>)/im);
+
+    {                           # fake nnml header
+      my %ano = $self->msgid_to_anos($msgid);
+      my @newsgroups = keys %ano;
+      $head =~ s/^X-nnml-groups:.*\n//mig;
+      my $newsgroups = sprintf("X-nnml-groups: %s\n", join(', ', @newsgroups));
+      $head .= $newsgroups;
+    }
+    
     if ($head) {
       $self->{_article} = $ano;
       if ($cmd eq 'article') {
@@ -435,7 +522,7 @@ sub cmd_post {
 
 
 sub accept_article {
-  my ($self, $msgid) = @_;
+  my ($self, $msgid, $extra_group) = @_;
   my %head = (
               subject         => '',
               from            => '',
@@ -455,7 +542,7 @@ sub accept_article {
   my $got_alarm = 0;
 
   my $sel = new IO::Select( $fh );
-  while ($sel->can_read($Config->timeout)) {
+  while ($sel->can_read($self->{timeout} || $Config->timeout)) {
     if ($fh->sysread($block, 512)) {
       $art .= $block;
       last if $art =~ /\r?\n\.\r?\n$/;
@@ -496,6 +583,9 @@ sub accept_article {
   unless ($head{'message-id'}) {
     $head{'message-id'} = sprintf "<%d\@unknown%s>", time, $HOST;
     $head .= "Message-Id: $head{'message-id'}\n";
+  } else {
+    $head{'message-id'} =~ s/^\s+//;
+    $head{'message-id'} =~ s/\s+$//;
   }
   for (keys %head) {
     printf "%-15s %s\n", $_, $head{$_} if $head{$_};
@@ -504,45 +594,82 @@ sub accept_article {
   unless (@newsgroups) {
     @newsgroups = split /,\s*/, $head{newsgroups};
   }
+  
+  if ($extra_group) {
+    my %all = $self->msgid_to_anos($head{'message-id'});
+    if ($all{$extra_group}) {
+      $self->msg(441, "alreday have $head{'message-id'} in $extra_group".
+        " as $all{$extra_group}");
+      return;
+    }
+    @newsgroups = (keys %all, $extra_group);
+  }
   unless (@newsgroups) {
-    $self->msg(441);
+    $self->msg(441, "No newsgroups specified");
     return;
   }
-  if ($self->article_msgid($head{'message-id'})) {
+  if (!$extra_group and $self->article_msgid($head{'message-id'})) {
     print "POSTER lied about 'message-id'}\n";
-    $self->msg(441);
+    $self->msg(441, "alreday have $head{'message-id'}");
     return;
   }
   my $create = NNML::Auth::perm($self,'create');
   unless ($ACTIVE->accept_article(\%head, $head, $body, $create, @newsgroups)) {
-    $self->msg(441);
+    $self->msg(441, "Something went wrong");
     return;
   }
-  $self->msg(240);
+  if ($extra_group) {
+    my %all = $self->msgid_to_anos($head{'message-id'});
+    if ($all{$extra_group}) {
+      $self->msg(287,$all{$extra_group},$extra_group);
+    } else {
+      $self->msg(441, "Article '$head{'message-id'}' not arrived in $extra_group");
+    }
+  } else {
+    $self->msg(240);
+  }
 }
 
 sub article_msgid {
   my ($self, $msgid) = @_;
-  my $group;
-  my %ano;
+  my ($groupname);
+  my %ano = $self->msgid_to_anos($msgid);
+  my @newsgroups = keys %ano;
   my ($head, $body);
-  my @newsgroups;
   
-  for $group ($ACTIVE->groups) {
-    my $ano = $group->article_by_id($msgid);
-    if (defined $ano) {
-      #printf "%s %d\n", $group->name, $ano;
-      push @newsgroups, $group->name;
-      $ano{$group} = $ano;
-      unless (defined $head) {
-        ($head, $body) = $group->get($ano);
-      }
-    }
+  for $groupname (@newsgroups) {
+    my $group = $ACTIVE->group($groupname);
+
+    ($head, $body) = $group->get($ano{$groupname});
+    last if defined $head;
   }
   return unless $head;
   $head =~ s/^X-nnml-groups:.*\n//mig;
   my $newsgroups = sprintf("X-nnml-groups: %s\n", join(', ', @newsgroups));
   return $head . $newsgroups, $body;
+}
+
+sub msgid_to_anos {
+  my ($self, $msgid) = @_;
+  my $group;
+  my %ano;
+  for $group ($ACTIVE->groups) {
+    my $ano = $group->article_by_id($msgid);
+    if (defined $ano) {
+      $ano{$group->name} = $ano;
+    }
+  }
+  %ano;
+}
+
+sub cmd_xtest {
+  my ($self,$msgid) = @_;
+  my %anos = msgid_to_anos(@_);
+  my ($grp, $ano);
+
+  while (($grp, $ano) = each %anos) {
+    printf "%s %d\n", $grp, $anos{$grp};
+  }
 }
 
 sub to_time {
@@ -578,7 +705,7 @@ sub to_time {
 }
 
 
-# read status message
+# read status messages
 my $line;
 while (defined ($line = <DATA>)) {
   chomp($line);
@@ -613,8 +740,12 @@ newgroups yymmdd hhmmss ["GMT"] [<distributions>]
 newnews newsgroups yymmdd hhmmss ["GMT"] [<distributions>]
 next
 post
-slave
+slave register as non-human. Timeout will be set to mirror_timeout
 stat [MessageID|Number]
+xdelete [Number] delete article in selected group
+xdeletegroup delete selected group
+xmovefrom [Number] delete article in selected group and deliver it
+xaccept insert article in selected group
 xgtitle [group_pattern]
 xhdr header [range|MessageID]
 xover [range]
@@ -638,12 +769,16 @@ xpath xpath MessageID
 235 article transferred ok
 240 article posted ok
 281 Authentication accepted
+285 delete article ok
+286 delete group ok
+287 aricle accepted as %d in group %s
 
 335 send article to be transferred.  End with <CR-LF>.<CR-LF>
 340 send article to be posted. End with <CR-LF>.<CR-LF>
 381 PASS required
 482 USER required
-
+485 delete article failed
+486 delete group failed
 400 service discontinued
 411 no such news group
 412 no newsgroup has been selected
@@ -656,7 +791,7 @@ xpath xpath MessageID
 436 transfer failed - try again later
 437 article rejected - do not try again.
 440 posting not allowed
-441 posting failed
+441 posting failed: '%s'
 480 Authentication required: %s
 482 Authentication rejected
 

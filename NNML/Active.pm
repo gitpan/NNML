@@ -4,15 +4,18 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Sep 28 14:15:22 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Sat Oct  5 16:15:41 1996
+# Last Modified On: Thu Oct 17 12:13:26 1996
 # Language        : CPerl
-# Update Count    : 67
+# Update Count    : 72
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
 # 
-# $Locker$
-# $Log$
+# $Locker: pfeifer $
+# $Log: Active.pm,v $
+# Revision 1.1  1996/10/17 07:53:58  pfeifer
+# Initial revision
+#
 # 
 
 package NNML::Active;
@@ -95,6 +98,20 @@ sub group {
   } 
 }
 
+sub delete_group {
+  my ($self, $group) = @_;
+  my $dir;
+
+  _update;
+  unless (exists $GROUP{$group}) {
+    return;
+  } else {
+    $dir = $GROUP{$group}->dir;
+    delete $GROUP{$group};
+  }
+  _write_active;
+  rmtree($dir,1,1);
+}
 sub groups {
   _update;
   values %GROUP;
@@ -167,34 +184,37 @@ sub accept_article {
                                        );
     }
     my $ov   = $GROUP{$group}->overview;
-    my $ano  = $GROUP{$group}->add;
+    my $oano = $GROUP{$group}->article_by_id($header->{'message-id'});
+    my $ano  = $oano || $GROUP{$group}->add;
     my $dir  = $GROUP{$group}->dir;
     my $file = "$dir/$ano";
 
-    if (-e $file) {
+    if (!$oano and -e $file) {
       print "File '$file' already exists\n";
       return 0;
     }
 
-    my $fh  = new IO::File ">> $ov";
-    unless (defined $fh) {
-      print "Could not write '$ov': $!\n";
-      return 0;
+    unless ($oano) {            # do not overwrite .overwiev ...
+      my $fh  = new IO::File ">> $ov";
+      unless (defined $fh) {
+        print "Could not write '$ov': $!\n";
+        return 0;
+      }
+      $header->{subject} =~ s/\s/ /;
+      $fh->printf("%d\t%s\t%s\t%s\t%s\t%s\t%d\t%s\t%s\t\n",
+                  $ano,
+                  $header->{subject}, 
+                  $header->{from},
+                  $header->{date},
+                  $header->{'message-id'},
+                  $header->{references},
+                  length($body),
+                  $header->{lines},
+                  $header->{xref});
+      $fh->close;
     }
-
-    $fh->printf("%d\t%s\t%s\t%s\t%s\t%s\t%d\t%s\t%s\t\n",
-                $ano,
-                $header->{subject}, 
-                $header->{from},
-                $header->{date},
-                $header->{'message-id'},
-                $header->{references},
-                length($body),
-                $header->{lines},
-                $header->{xref});
-    $fh->close;
     if (defined $afile) {
-      unless (link($afile, $file)) {
+      unless ($oano or link($afile, $file)) {
         print "Could not link '$file' to '$afile': $!\n";
         return 0;
       }

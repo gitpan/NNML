@@ -4,9 +4,9 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Sep 28 13:53:36 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Sat Oct  5 17:59:33 1996
+# Last Modified On: Thu Oct 17 13:25:41 1996
 # Language        : CPerl
-# Update Count    : 85
+# Update Count    : 87
 # Status          : Unknown, Use with caution!
 #
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -26,18 +26,18 @@ require Exporter;
 @ISA = qw(Exporter);
 @EXPORT = qw(server);
 
-$VERSION = do{my @r=(q$Revision: 1.07 $=~/(\d+)/g);sprintf "%d."."%02d"x$#r,@r};
+$VERSION = do{my @r=(q$Revision: 1.08 $=~/(\d+)/g);sprintf "%d."."%02d"x$#r,@r};
 
 sub server {
   my %opt  = @_;
-  my $port = $opt{port} || 3000;
+  my $port = $opt{port} || $Config->port;
 
   if (exists $opt{base}) {
     $Config->base($opt{base});
   }
   NNML::Auth::_update;          # just for the message
   my $lsn  = new IO::Socket::INET(Listen    => 5,
-                                  LocalPort => $Config->port,
+                                  LocalPort => $port,
                                   Proto     => 'tcp');
   die "Could not connect to port $port" unless defined $lsn;
   my $SEL  = new IO::Select( $lsn );

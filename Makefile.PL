@@ -4,9 +4,9 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Sep 28 13:51:19 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Tue Oct  8 09:43:34 1996
+# Last Modified On: Thu Oct 17 11:49:36 1996
 # Language        : CPerl
-# Update Count    : 40
+# Update Count    : 41
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -54,20 +54,22 @@ directory. Use '~/' to indicate this.
     print qq{
 
 NNML uses an active file to store summary information about the
-newsgroups. This is usually '$base/active'.
+newsgroups. This is usually '$base/active'. You may abbreviate '$base'
+by '~' in which case the current base setting is used.
 
 };
-    my $active = $Config->{active} || MM->catfile ($base, 'active');
+    my $active = $Config->{active} || MM->catfile ('~', 'active');
     $Config->{active} = prompt("NNML active file?", $active);
 
 
     print qq{
 
 NNML implements a basic authorisation using passwords. Where should
-the password file be stored?  This is usually '$base/passwd'.
+the password file be stored?  This is usually '$base/passwd'.  You may
+abbreviate '$base' by '~'.
 
 };
-    my $passwd = $Config->{passwd} || MM->catfile ($base, 'passwd');
+    my $passwd = $Config->{passwd} || MM->catfile ('~', 'passwd');
     $Config->{passwd} = prompt("NNML passwd file?", $passwd);
 
     print qq{
@@ -259,6 +261,8 @@ sub base {
   if (defined $base) {
     $self->{base} = $base;
     delete $self->{_base};
+    delete $self->{_active};
+    delete $self->{_passwd};
   }
   return $self->{_base} if exists $self->{_base};
   $self->{_base} = $self->{base};
@@ -275,7 +279,7 @@ sub active {
   }
   return $self->{_active} if exists $self->{_active};
   $self->{_active} = $self->{active};
-  $self->{_active} =~ s/^~/$self->home/e;
+  $self->{_active} =~ s/^~/$self->base/e;
   $self->{_active};
 }
 
@@ -288,7 +292,7 @@ sub passwd {
   }
   return $self->{_passwd} if exists $self->{_passwd};
   $self->{_passwd} = $self->{passwd};
-  $self->{_passwd} =~ s/^~/$self->home/e;
+  $self->{_passwd} =~ s/^~/$self->base/e;
   $self->{_passwd};
 }
 

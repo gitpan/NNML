@@ -34,9 +34,9 @@ print OUT <<'!NO!SUBS!';
 # Author          : Ulrich Pfeifer
 # Created On      : Sun Sep 29 11:50:11 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Mon Oct  7 09:19:00 1996
+# Last Modified On: Thu Oct 17 09:34:57 1996
 # Language        : CPerl
-# Update Count    : 41
+# Update Count    : 42
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -49,6 +49,8 @@ print OUT <<'!NO!SUBS!';
 # In the following, perl variables are not expanded during extraction.
 
 print OUT <<'!NO!SUBS!';
+eval 'exec perl -S $0 "$@"'
+    if 0;
         
 eval 'exec perl -S $0 "$@"'
     if 0;
@@ -73,7 +75,6 @@ sleep 100;
         tpass   => $Config->local_passwd,
         tport   => $Config->port,
         tuser   => $Config->local_user,
-        timeout => $Config->mirror_timeout,
        );
 
 GetOptions(\%OPT,
@@ -90,12 +91,9 @@ GetOptions(\%OPT,
            'group=s@',
            'only=s',
            'ignore=s',
-           'timeout=i',
            'reverse!',
            'verbose!',
           ) or die;
-
-$Config->timeout($OPT{timeout});
 
 if ($OPT{'reverse'}) {
   @OPT{qw(fhost fpass fport fuser thost tpass tport tuser)} =
@@ -136,7 +134,7 @@ die unless defined $from and defined $to;
 if ($to->command("MODE GZIP")) {
   $from->command("MODE GZIP");
 }
-
+$to->command("SLAVE");
 my @msgid = $from->newnews($group, $time);
 my $togo = scalar(@msgid );
 my $msgid;
@@ -273,6 +271,7 @@ configuration and only give the passwords n the command line.
 =head1 AUTHOR
 
 Ulrich Pfeifer E<lt>F<pfeifer@ls6.informatik.uni-dortmund.de>E<gt>
+
 
 
 
