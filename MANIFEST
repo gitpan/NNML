@@ -1,0 +1,13 @@
+Changes
+MANIFEST
+Makefile.PL
+NNML/Active.pm
+NNML/Auth.pm
+NNML/Config.pm
+NNML/Connection.pm
+NNML/Group.pm
+NNML/Server.pm
+README
+nnmirror.PL
+overview.PL
+t/base.t
