@@ -27,31 +27,18 @@ print "Extracting $file (with variable substitutions)\n";
 print OUT <<"!GROK!THIS!";
 $Config{'startperl'} -w
 !GROK!THIS!
-print OUT <<'!NO!SUBS!';
-
-!NO!SUBS!
-
 # In the following, perl variables are not expanded during extraction.
 
 print OUT <<'!NO!SUBS!';
-eval 'exec perl -w -S $0 "$@"'
-    if 0;
-
-eval 'exec perl -w -S $0 "$@"'
-    if 0;
-
-eval 'exec perl -w -S $0 "$@"'
-    if 0;
-
 #                              -*- Mode: Perl -*- 
 # mm -- 
 # ITIID           : $ITI$ $Header $__Header$
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Nov  2 17:28:28 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Tue Mar  4 18:53:04 1997
+# Last Modified On: Mon Mar 24 10:59:58 1997
 # Language        : CPerl
-# Update Count    : 82
+# Update Count    : 84
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -130,7 +117,7 @@ while (defined ($job = <$cf>)) {
   run_job(%job) if scalar %job;
 }
 
-print "Waiting for childs to die\n";
+print "Waiting for children to die\n";
 while (keys %key) {
   sleep 1;
 }

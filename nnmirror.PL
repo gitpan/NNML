@@ -27,34 +27,18 @@ print "Extracting $file (with variable substitutions)\n";
 print OUT <<"!GROK!THIS!";
 $Config{'startperl'} 
 !GROK!THIS!
-print OUT <<'!NO!SUBS!';
-
-!NO!SUBS!
-
 # In the following, perl variables are not expanded during extraction.
 
 print OUT <<'!NO!SUBS!';
-eval 'exec perl  -S $0 "$@"'
-    if 0;
-
-eval 'exec perl  -S $0 "$@"'
-    if 0;
-
-eval 'exec perl  -S $0 "$@"'
-    if 0;
-
-eval 'exec perl  -S $0 "$@"'
-    if 0;
-
 #                              -*- Mode: Perl -*- 
 # nnmirror -- 
 # ITIID           : $ITI$ $Header $__Header$
 # Author          : Ulrich Pfeifer
 # Created On      : Sun Sep 29 11:50:11 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Fri Feb 21 15:15:45 1997
+# Last Modified On: Mon Mar 24 11:00:10 1997
 # Language        : CPerl
-# Update Count    : 80
+# Update Count    : 82
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.

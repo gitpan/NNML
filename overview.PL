@@ -27,44 +27,25 @@ print "Extracting $file (with variable substitutions)\n";
 print OUT <<"!GROK!THIS!";
 $Config{'startperl'} 
 !GROK!THIS!
-print OUT <<'!NO!SUBS!';
-
-!NO!SUBS!
-
 # In the following, perl variables are not expanded during extraction.
 
 print OUT <<'!NO!SUBS!';
-eval 'exec perl  -S $0 "$@"'
-    if 0;
-
-eval 'exec perl  -S $0 "$@"'
-    if 0;
-
-eval 'exec perl  -S $0 "$@"'
-    if 0;
-
 #                              -*- Mode: Perl -*- 
 # nnml.pl -- 
 # ITIID           : $ITI$ $Header $__Header$
 # Author          : Ulrich Pfeifer
 # Created On      : Fri Mar 10 10:34:08 1995
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Wed Feb 19 23:09:31 1997
+# Last Modified On: Mon Mar 24 11:00:47 1997
 # Language        : Perl
-# Update Count    : 85
+# Update Count    : 93
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
 # 
-# $Locker:  $
-# $Log: overview.PL,v $
-# Revision 1.3  1997/02/20 13:20:02  pfeifer
-# Now seems to work again!
-#
-# Revision 1.1  1997/02/10 19:47:12  pfeifer
-# Switched to CVS
-#
-# 
+eval 'exec perl  -S $0 "$@"'
+    if 0;
+
 use Cwd;
 $home = $ENV{'HOME'} || $ENV{'LOGDIR'} ||
     (getpwuid($<))[7] || die "You're homeless!\n";
@@ -309,8 +290,11 @@ sub nov_entry {
     while (<MAIL>) {
         $lines++; $chars += length($_);
     }
+    for ($subject, $from, $date, $id, $references) {
+      s/\t/ /g && print STDERR "*** $file $_\n";
+    }
     sprintf("%s\t%s\t%s\t%s\t%s\t%d\t%s\t%s\t\n",
-           $subject, $from, $date, $id, $references, $chars, $lines-1, $xref);
+            $subject, $from, $date, $id, $references, $chars, $lines-1, $xref);
 }
 
 __END__

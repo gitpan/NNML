@@ -4,9 +4,9 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Sep 28 13:51:19 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Tue Mar  4 12:26:10 1997
+# Last Modified On: Mon Mar 24 10:57:22 1997
 # Language        : CPerl
-# Update Count    : 70
+# Update Count    : 71
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -39,7 +39,7 @@ WriteMakefile(
               'dist'         => {
                                  SUFFIX   => "gz",
                                  COMPRESS => "gzip -f",
-                                 PREOP    => "$wrap; changelog -update; ".
+                                 PREOP    => "changelog -update; ".
                                  'pod2text NNML/Server.pm > README',
                                 },
               'EXE_FILES'    => \@scripts,

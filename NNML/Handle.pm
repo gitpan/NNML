@@ -4,9 +4,9 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Thu Feb 27 15:03:57 1997
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Thu Feb 27 21:50:39 1997
+# Last Modified On: Fri Feb 28 12:09:50 1997
 # Language        : CPerl
-# Update Count    : 20
+# Update Count    : 21
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1997, Universität Dortmund, all rights reserved.
@@ -19,7 +19,7 @@ use vars qw(@ISA);
 use strict;
 use Carp;
 
-@ISA = qw(IO::Socket::INET Net::Cmd);
+@ISA = qw(Net::Cmd IO::Socket::INET);
 
 # Snarfed from Net::Cmd; we don't expect an answer.
 sub dataend

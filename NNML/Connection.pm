@@ -4,9 +4,9 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Sep 28 15:24:53 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Sat Mar 15 13:49:56 1997
+# Last Modified On: Sat Mar 22 16:38:00 1997
 # Language        : CPerl
-# Update Count    : 324
+# Update Count    : 325
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -420,7 +420,7 @@ sub cmd_xdate   { my $self = shift; $self->article('date',    join ' ', @_)};
 
 sub article {
   my ($self, $cmd, $parm) = @_;
-  if (defined $parm and $parm =~ /^<.*>$/) {
+  if (defined $parm and $parm =~ /^\s*<.*>\s*$/) {
     my ($head, $body) = article_msgid($parm);
     if ($head) {
       if ($cmd eq 'article') {
@@ -443,7 +443,7 @@ sub article {
       return;
     }
     my $ano = $parm || $self->{_article};
-    unless ($ano) {
+    unless ($ano =~ /^\d+$/) {
       $self->msg(420);
       return;
     }

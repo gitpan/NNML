@@ -1,12 +1,12 @@
 #                              -*- Mode: Perl -*-
-# Base.pm --
+# Server.pm --
 # ITIID           : $ITI$ $Header $__Header$
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Sep 28 13:53:36 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Thu Mar 20 16:52:38 1997
+# Last Modified On: Mon Mar 24 11:04:00 1997
 # Language        : CPerl
-# Update Count    : 126
+# Update Count    : 153
 # Status          : Unknown, Use with caution!
 #
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -20,11 +20,12 @@ use IO::Socket;
 use IO::Select;
 use NNML::Handle;
 use strict;
+
 require Exporter;
 @ISA = qw(Exporter);
 @EXPORT = qw(server unspool);
 
-$VERSION = '1.11';
+$VERSION = do{my @r=(q$Revision: 1.12 $=~/(\d+)/g);sprintf "%d."."%02d"x$#r,@r};
 
 sub server {
   my %opt  = @_;
@@ -45,25 +46,34 @@ sub server {
   my $fh;
   my @ready;
 
-  print "listening on port $port\n";
+  print STDERR "listening on port $port\n";
   
-  while(@ready = $SEL->can_read) {
+  while(1) {
+    @ready = $SEL->can_read;
+  REQUEST:
     foreach $fh (@ready) {
       if($fh == $lsn) {
-        # Create a new socket
-        my $new = $lsn->accept;
-        # $new->autoflush(1);
+        my $new = $lsn->accept; # Create a new socket
         $CON{$new} = new NNML::Connection $new, $VERSION;
         $SEL->add($new);
       } else {
-        my $cmd = $fh->getline();
-        my ($func, @args) = split ' ', $cmd;
+        my ($cmd, $func, @args);
+        my $fno = fileno($fh); 
 
-        $func = lc $func;
-        if ($func eq 'shut') {
+        $cmd = $fh->getline();
+        ($func, @args) = split ' ', $cmd;
+        unless (fileno($fh)) {
+          # client has closed connection without sending 'quitt'
+          printf STDERR "Shuttig down $fh(%d)\n", $fno;
+          delete $CON{$fh};
+          $SEL->remove($fno);
+          next REQUEST;
+        }
+        $func = lc($func);
+        if ($func eq 'shut') {  # shut down the server
           if (NNML::Auth::perm($CON{$fh}, $func)) {
             my $fx;
-            print "Going down\n";
+            print STDERR "Going down\n";
             for $fx (keys %CON) {
               $CON{$fx}->msg(400);
               $CON{$fx}->close;
@@ -74,12 +84,12 @@ sub server {
             return;
           } else {
             $CON{$fh}->msg(480);
-            next;
+            next REQUEST;
           }
         } else {
           $func = $CON{$fh}->dispatch($func, @args);
           if ($func eq 'quit') {
-            print "closed\n";
+            print STDERR "closed\n";
             $SEL->remove($fh);
             $CON{$fh}->close;
             delete $CON{$fh};
