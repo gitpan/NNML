@@ -40,9 +40,9 @@ eval 'exec perl -S $0 "$@"'
 # Author          : Ulrich Pfeifer
 # Created On      : Fri Mar 10 10:34:08 1995
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Mon Sep 30 10:54:51 1996
+# Last Modified On: Wed Oct  2 13:19:06 1996
 # Language        : Perl
-# Update Count    : 80
+# Update Count    : 84
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -50,27 +50,31 @@ eval 'exec perl -S $0 "$@"'
 # $Locker$
 # $Log$
 # 
-
+use Cwd;
 $home = $ENV{'HOME'} || $ENV{'LOGDIR'} ||
     (getpwuid($<))[7] || die "You're homeless!\n";
 chomp($hostname = `hostname`);
-require "newgetopt.pl";
 
-$opt_verbose = $opt_dir = $opt_base = $opt_force = $opt_debug = ''; 
-&NGetOpt(
-         'base=s',
-         'dir=s',
-         'force',
-         'verbose',
-         'debug',
-         ) || die "Usage: $0 ... \n";
+use Getopt::Long;
 
-$base = $opt_base || "$home/Mail";
-$dir  = $opt_dir  || $base;
+&GetOptions(\%OPT,
+            'base=s',
+            'dir=s',
+            'force',
+            'verbose',
+            'debug',
+           ) || die "Usage: $0 ... \n";
+
+$base = $OPT{base} || "$home/Mail";
+$dir  = $OPT{dir}  || $base;
 $nov  = '.overview';
 $active      = "$base/active";
 $active_time = &mtime($active);
-$opt_verbose = 1 if $opt_debug;
+$OPT{verbose} = 1 if $OPT{debug};
+
+unless ($base =~ m:^/:) {
+  $base = getcwd . '/' . $base;
+}
 
 &read_active($active);
 &find($dir);
@@ -82,7 +86,7 @@ sub read_active {
     my($active) = @_;
     my($group,$data);
 
-    print STDERR "read_active\n" if $opt_debug;
+    print STDERR "read_active\n" if $OPT{debug};
     return unless -e $active;
     open(ACTIVE, "<$active") || die "Could not open $active: $!\n";
     while (<ACTIVE>) {
@@ -95,7 +99,7 @@ sub read_active {
 sub write_active {
     my($active) = @_;
 
-    print STDERR "write_active\n" if $opt_debug;
+    print STDERR "write_active\n" if $OPT{debug};
     rename $active, "$active~";
     open(ACTIVE, ">$active") || die "Could not open $active: $!\n";
     for (sort keys %ACTV) {
@@ -119,7 +123,7 @@ sub find {
 
     chop($cwd = `pwd`);
 
-    print STDERR "find(", join(',',@_),")\n" if $opt_debug;
+    print STDERR "find(", join(',',@_),")\n" if $OPT{debug};
     foreach $topdir (@_) {
 	(($topdev,$topino,$topmode,$topnlink) = stat($topdir))
             || (warn("Can't stat $topdir: $!\n"), next);
@@ -155,13 +159,13 @@ sub finddir {
     my($nov_time) = &mtime($nov);
     my($dir_time) = &mtime($dir);
     my($update)   = 
-        $opt_force 
+        $OPT{force} 
             || $dir_time > $nov_time 
                 || $dir_time > $active_time;
     my(@novdb);
     my($num,$data);
 
-    print STDERR "finddir($dir,$nlink) update=$update\n" if $opt_debug;
+    print STDERR "finddir($dir,$nlink) update=$update\n" if $OPT{debug};
 
     $group = $dir; $group =~ s:^$base/::; $group =~ s:/:.:go;
 
@@ -181,9 +185,9 @@ sub finddir {
 	    if ( /^[0-9]*$/ ) {
                 $min = $_ if !defined $min || $min >= $_;
                 $max = $_ if !defined $min || $max <= $_;
-                if ($opt_force || ($nov_time < &mtime($_))) {
+                if ($OPT{force} || ($nov_time < &mtime($_))) {
                     $novdb[$_] = &nov_entry($_, $group);
-                    print STDERR ">>>$_, $novdb[$_]\n" if $opt_debug;
+                    print STDERR ">>>$_, $novdb[$_]\n" if $OPT{debug};
                 }
             }
 	}
@@ -213,7 +217,7 @@ sub finddir {
                     if ( /^[0-9]*$/ ) {
                         $min = $_ if !defined $min || $min >= $_;
                         $max = $_ if !defined $min || $max <= $_;
-                        if ($opt_force || ($nov_time < &mtime($_))) {
+                        if ($OPT{force} || ($nov_time < &mtime($_))) {
                             $novdb[$_] = &nov_entry($_, $group);
                         }
                     }
@@ -223,7 +227,7 @@ sub finddir {
                 if ( /^[0-9]*$/ ) {
                     $min = $_ if !defined $min || $min >= $_;
                     $max = $_ if !defined $min || $max <= $_;
-                    if ($opt_force || ($nov_time < &mtime($_))) {
+                    if ($OPT{force} || ($nov_time < &mtime($_))) {
                         $novdb[$_] = &nov_entry($_, $group);
                     }
                 }
@@ -240,7 +244,7 @@ sub finddir {
 sub write_nov {
     my($nov, @novdb) = @_;
 
-    print STDERR "write_nov\n" if $opt_debug;
+    print STDERR "write_nov\n" if $OPT{debug};
     rename $nov, "$nov~";
     open(NOV, ">$nov")  || die "Could not open $nov: $!\n";
     for $num ($[ .. $#novdb) {
@@ -253,8 +257,8 @@ sub read_nov {
     my($nov) = @_;
     my(@novdb, $num, $data);
 
-    print STDERR "read_nov\n" if $opt_debug;
-    if ( !$opt_force && -e $nov) {
+    print STDERR "read_nov\n" if $OPT{debug};
+    if ( !$OPT{force} && -e $nov) {
         open(NOV, "<$nov") || die "Could not open $nov: $!\n";
         while (<NOV>) {
             ($num, $data) = split(/\s+/,$_,2);
@@ -273,7 +277,7 @@ sub nov_entry {
     my($subject, $from, $date, $id, $references, $chars, $lines, $xref) =
         ("(none)", "(nobody)", "", "", "", 0, "0", "");
 
-    print STDERR "nov_entry($group:$file)\n" if $opt_verbose;
+    print STDERR "nov_entry($group:$file)\n" if $OPT{verbose};
     #$chars = (stat($file))[7];
     open(MAIL, "$file") || die "Could not open $file: $!\n";
     while (<MAIL>) {

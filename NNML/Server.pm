@@ -4,9 +4,9 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Sep 28 13:53:36 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Tue Oct  1 09:29:35 1996
+# Last Modified On: Wed Oct  2 15:27:14 1996
 # Language        : CPerl
-# Update Count    : 79
+# Update Count    : 82
 # Status          : Unknown, Use with caution!
 #
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -26,7 +26,7 @@ require Exporter;
 @ISA = qw(Exporter);
 @EXPORT = qw(server);
 
-$VERSION = do{my @r=(q$Revision: 1.05 $=~/(\d+)/g);sprintf "%d."."%02d"x$#r,@r};
+$VERSION = do{my @r=(q$Revision: 1.06 $=~/(\d+)/g);sprintf "%d."."%02d"x$#r,@r};
 
 sub server {
   my %opt  = @_;
@@ -35,6 +35,7 @@ sub server {
   if (exists $opt{base}) {
     $CONF->base($opt{base});
   }
+  NNML::Auth::_update;          # just for the message
   my $lsn  = new IO::Socket::INET(Listen    => 5,
                                   LocalPort => $port,
                                   Proto     => 'tcp');
@@ -45,6 +46,7 @@ sub server {
   my @ready;
 
   print "listening on port $port\n";
+  
   while(@ready = $SEL->can_read) {
     foreach $fh (@ready) {
       if($fh == $lsn) {
@@ -117,7 +119,7 @@ Supported commands:
 
 The main reason for writing this was to synchronize my mail directories
 across different hosts. The Mail directories are MH-Style with a F<.overview>
-file in each folder and a F<active> file in the base
+file in each folder and an F<active> file in the base
 directory. These are maintained by the B<Emacs> B<Gnus> backend
 B<NNML>. To get started, you can generate/update this files using the
 B<overview> program. Upon C<POST> and C<IHAVE> commands this files
@@ -162,11 +164,19 @@ Users with permission B<write> may use the B<POST> and B<IHAVE> commands.
 
 All other commands require the B<read> permission.
 
+=head1 FEATURES
+
+Version 1.06 implements the C<MODE GZIP> command. After submiting this
+commands, all articles, heads and bodies will be piped through C<gzip
+-cf | mimencode>. The server will recognize post requeste using the
+same pipe automatically. This will speed up B<nnmirror> if the line is
+sufficiant slow.
+
 =head1 BUGS
 
 The server handles multiple connections in a single thread. So a hung
 C<POST> or C<IHAVE> would block all connections. Therfore a post
-request is interrupted if the server could not read some bytes for 10
+request is interrupted if the server could not read any bytes for 30
 seconds. The Client is notified by message 441. If the client
 continues to send the article, it is interpreted by the command loop.
 

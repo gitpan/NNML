@@ -4,9 +4,9 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Sep 28 16:33:51 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Tue Oct  1 08:20:21 1996
+# Last Modified On: Tue Oct  1 10:18:00 1996
 # Language        : CPerl
-# Update Count    : 31
+# Update Count    : 32
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -98,7 +98,7 @@ sub newnews {
     if (-e $file) {
       my $ctime = (stat($file))[9];
       if ($ctime >= $time) {
-        push @result, $self->{_byno}->{$ano};
+        unshift @result, $self->{_byno}->{$ano};
       } else {
         last;
       }

@@ -4,9 +4,9 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Sep 28 15:24:53 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Tue Oct  1 08:51:55 1996
+# Last Modified On: Wed Oct  2 15:27:31 1996
 # Language        : CPerl
-# Update Count    : 152
+# Update Count    : 197
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -97,6 +97,51 @@ sub end {
   $self->{_fh}->print(".\r\n");
 }
 
+use IO::Pipe;
+use IO::File;
+
+sub gzip {
+  my $text = shift;
+  my $result;
+  
+  my $pipe = new IO::Pipe;
+  my $pid = fork();
+
+  if($pid) {
+    $pipe->reader;
+    my $stdin = bless \*STDIN, "IO::Handle";
+    $stdin->fdopen($pipe,"r");
+    my $gzip;
+    if ($_[0] =~ /d/) {
+      #print STDERR "mimencode -u | gzip @_ |\n";
+      $gzip = new IO::File "mimencode -u | gzip @_ |";
+    } else {
+      #print STDERR "gzip @_ | mimencode |\n";
+      $gzip = new IO::File "gzip @_ | mimencode |";
+    }
+    local ($/) = undef;
+    $result = <$gzip>;
+    wait;
+  } elsif(defined $pid) {
+    $pipe->writer;
+    chomp($text);
+    print $pipe $text;
+    $pipe->close;
+    exit;
+  }
+  $result;
+}
+
+sub output_gz {
+  my $self = shift;
+
+  if (exists $self->{_mode}->{GZIP}) {
+    $self->{_fh}->print(gzip(join('',@_), '-cf'), "\n");
+  } else {
+    $self->output(@_);
+  }
+}
+
 sub output {
   my $self = shift;
 
@@ -163,8 +208,13 @@ sub cmd_group {
 
 sub cmd_mode {
   my $self = shift;
-  my $mode = shift;
+  my $mode = uc shift;
 
+  if ($mode eq 'GZIP') {
+    $self->{_mode}->{GZIP} = 1;
+  } elsif ($mode eq 'NOGZIP') {
+    delete $self->{_mode}->{GZIP} if exists $self->{_mode}->{GZIP};
+  }
   $self->msg(280, $mode);
 }
 
@@ -311,13 +361,13 @@ sub article {
     if ($head) {
       if ($cmd eq 'article') {
         $self->msg(220,0,$parm);
-        $self->output($head, "\n", $body);
+        $self->output_gz($head, "\n", $body);
       } elsif ($cmd eq 'head') {
         $self->msg(221,0,$parm);
-        $self->output($head);
+        $self->output_gz($head);
       } else {
         $self->msg(222,0,$parm);
-        $self->output($body);
+        $self->output_gz($body);
       }
       $self->end;
     } else {
@@ -340,13 +390,13 @@ sub article {
       $self->{_article} = $ano;
       if ($cmd eq 'article') {
         $self->msg(220,$ano, $msgid);
-        $self->output($head, "\n", $body);
+        $self->output_gz($head, "\n", $body);
       } elsif ($cmd eq 'head') {
         $self->msg(221,$ano, $msgid);
-        $self->output($head);
+        $self->output_gz($head);
       } else {
         $self->msg(222,$ano, $msgid);
-        $self->output($body);
+        $self->output_gz($body);
       }
       $self->end;
     } else {
@@ -404,7 +454,7 @@ sub accept_article {
   my $got_alarm = 0;
 
   my $sel = new IO::Select( $fh );
-  while ($sel->can_read(10)) {
+  while ($sel->can_read(30)) {
     if ($fh->sysread($block, 512)) {
       $art .= $block;
       last if $art =~ /\r?\n\.\r?\n$/;
@@ -416,8 +466,14 @@ sub accept_article {
     $self->msg(441);
     return;
   }
-  $art =~ s/\r//g;
-  $art =~ s/.\n$//;
+  $art =~ s/.\r?\n$//;
+  if ($art =~ /^(‹|H4sI)/) {
+    $art =~ s/\r?\n$//;
+    $art = gzip($art, '-cd');
+  } else {
+    $art =~ s/\r//g;
+    $art =~ s/^\.\././mg;
+  }
   my ($head, $body) = split /^$/m, $art, 2;
 
   for (split /\n/, $head) {

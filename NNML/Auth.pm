@@ -5,9 +5,9 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Mon Sep 30 08:49:41 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Tue Oct  1 08:20:38 1996
+# Last Modified On: Wed Oct  2 21:21:59 1996
 # Language        : CPerl
-# Update Count    : 20
+# Update Count    : 27
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -21,31 +21,51 @@ use NNML::Config qw($CONF);
 use IO::File;
 use strict;
 
-my $NORESTRICTION = 0;
+my $NORESTRICTION = -1;
+my $PASSWD = '';
+my $TIME;
 my (%PASSWD, %PERM);
 
-if (-e $CONF->passwd) {
-  my $fh = new IO::File '< ' . $CONF->passwd;
-  if (defined $fh) {
-    local ($_);
-    while (<$fh>) {
-      chomp;
-      my($user, $passwd, @perm) = split;
-      $PASSWD{$user} = $passwd;
-      my %perm;
-      @perm{@perm} = @perm;
-      $PERM{$user} = \%perm;
+sub _update {
+  my $norestriction = $NORESTRICTION; 
+  if (-e $CONF->passwd) {
+    if ($PASSWD ne $CONF->passwd
+        or (stat($CONF->passwd))[9] > $TIME) {
+      $PASSWD = $CONF->passwd;
+      $TIME = (stat($CONF->passwd))[9];
+      
+      my $fh = new IO::File '< ' . $CONF->passwd;
+      if (defined $fh) {
+        local ($_);
+        while (<$fh>) {
+          chomp;
+          my($user, $passwd, @perm) = split;
+          $PASSWD{$user} = $passwd;
+          my %perm;
+          @perm{@perm} = @perm;
+          $PERM{$user} = \%perm;
+        }
+        $NORESTRICTION = 0;
+      } else {                  # could not read passwd
+        $NORESTRICTION = 1;
+      }
     }
-  } else {
+  } else {                      # tehere is no passwd
     $NORESTRICTION = 1;
   }
-} else {
-  $NORESTRICTION = 1;
+  if ($NORESTRICTION != $norestriction) {
+    if ($NORESTRICTION) {
+      print "Authorization disabled\n";
+    } else {
+      print "Authorization enabled\n";
+    }
+  }
 }
 
 sub perm {
   my ($con, $command) = @_;
 
+  _update;
   return 1 if $NORESTRICTION;
   return 1 if $command =~ /HELP|QUIT|AUTHINFO|MODE|SLAVE/i;
   return 0 unless $con->{_user};
@@ -67,6 +87,7 @@ sub perm {
 sub check {
   my ($user, $passwd) = @_;
 
+  _update;
   return 0 unless exists $PASSWD{$user};
   my $salt = substr($PASSWD{$user},0,2);
   return (crypt($passwd, $salt) eq $PASSWD{$user});
@@ -90,8 +111,5 @@ sub add_user {
   return 1;
 }
 
-if ($NORESTRICTION) {
-  print "Authorization disabled\n";
-}
 
 1;

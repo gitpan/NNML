@@ -4,9 +4,9 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Sep 28 14:15:22 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Tue Oct  1 08:26:41 1996
+# Last Modified On: Wed Oct  2 15:28:08 1996
 # Language        : CPerl
-# Update Count    : 65
+# Update Count    : 66
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -108,7 +108,7 @@ sub newgroups {
   for (keys %GROUP) {
     # printf "%s %d %d\n", $_, $GROUP{$_}->ctime, $time;
     if ($GROUP{$_}->ctime > $time) {
-      push @result, $_;
+      unshift @result, $_;
     }
   }
   @result;
@@ -214,16 +214,3 @@ sub accept_article {
 }
 
 1;
-
-__END__
-  
-sub list {
-
-  _update;
-  my @result;
-  for (sort keys %GROUP) {
-    push @result, [$_, @{$GROUP{$_}}];
-  }
-  @result;
-}
-
