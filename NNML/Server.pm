@@ -4,9 +4,9 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Sep 28 13:53:36 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Thu Oct 17 13:25:41 1996
+# Last Modified On: Tue Nov  5 11:02:54 1996
 # Language        : CPerl
-# Update Count    : 87
+# Update Count    : 93
 # Status          : Unknown, Use with caution!
 #
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -26,7 +26,7 @@ require Exporter;
 @ISA = qw(Exporter);
 @EXPORT = qw(server);
 
-$VERSION = do{my @r=(q$Revision: 1.08 $=~/(\d+)/g);sprintf "%d."."%02d"x$#r,@r};
+$VERSION = do{my @r=(q$Revision: 1.09 $=~/(\d+)/g);sprintf "%d."."%02d"x$#r,@r};
 
 sub server {
   my %opt  = @_;
@@ -69,12 +69,12 @@ sub server {
               print "Going down\n";
               for $fx (keys %CON) {
                 $CON{$fx}->msg(400);
-                $SEL->remove($fx);
+                #$SEL->remove($fx);
                 $CON{$fx}->close;
                 delete $CON{$fx};
               }
-              $SEL->remove($lsn);
-              $lsn->close;
+              #$SEL->remove($lsn);
+              shutdown($lsn,2);
               return;
             } else {
               $CON{$fh}->msg(480);

@@ -5,9 +5,9 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Mon Sep 30 08:49:41 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Thu Oct 17 09:33:37 1996
+# Last Modified On: Fri Oct 25 11:44:44 1996
 # Language        : CPerl
-# Update Count    : 30
+# Update Count    : 31
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -89,6 +89,7 @@ sub check {
 
   _update;
   return 0 unless exists $PASSWD{$user};
+  return 1 if $PASSWD{$user} eq '*';
   my $salt = substr($PASSWD{$user},0,2);
   return (crypt($passwd, $salt) eq $PASSWD{$user});
 }

@@ -4,9 +4,9 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Sep 28 16:33:51 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Thu Oct 17 11:36:18 1996
+# Last Modified On: Tue Nov  5 10:55:08 1996
 # Language        : CPerl
-# Update Count    : 42
+# Update Count    : 46
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -87,7 +87,7 @@ sub _read_overview {
 # It deserves tuning (binary search).
 sub newnews {
   my ($self, $time) = @_;
-  my @result;
+  my %result;
   
   $self->_update;
   return () if $self->{_ctime} < $time;
@@ -98,13 +98,13 @@ sub newnews {
     if (-e $file) {
       my $ctime = (stat($file))[9];
       if ($ctime >= $time) {
-        unshift @result, $self->{_byno}->{$ano};
+        $result{$self->{_byno}->{$ano}} = $ctime;
       } else {
         last;
       }
     }
   }
-  @result;
+  %result;
 }
 
 sub xover {
@@ -131,6 +131,7 @@ sub get {
   my ($self, $ano) = @_;
   my $file = $self->{_dir} . "/$ano";
   if (-e $file) {
+    my $date = ((stat($file))[10]);
     my $fh = new IO::File "<" . $file;
     return unless $fh;
     my $head = '';
@@ -144,7 +145,7 @@ sub get {
     while (defined ($line = <$fh>)) {
       $body .= $line;
     }
-    return $head, $body;
+    return $head, $body, $date;
   }
 }
 

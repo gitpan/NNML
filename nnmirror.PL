@@ -34,9 +34,9 @@ print OUT <<'!NO!SUBS!';
 # Author          : Ulrich Pfeifer
 # Created On      : Sun Sep 29 11:50:11 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Thu Oct 17 09:34:57 1996
+# Last Modified On: Tue Nov  5 11:04:41 1996
 # Language        : CPerl
-# Update Count    : 42
+# Update Count    : 43
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -52,12 +52,6 @@ print OUT <<'!NO!SUBS!';
 eval 'exec perl -S $0 "$@"'
     if 0;
         
-eval 'exec perl -S $0 "$@"'
-    if 0;
-        
-eval 'exec perl -S $0 "$@"'
-    if 0;
-
 BEGIN {$0 = 'nnmirror ....'; }
 use Getopt::Long;
 use Time::Local;
@@ -65,7 +59,7 @@ require News::NNTPClient;
 use NNML::Config qw($Config);
 use strict;
 use vars qw(%OPT);
-sleep 100;
+
 %OPT = (
         fhost   => $Config->mirror_host,
         fpass   => $Config->remote_passwd,
@@ -104,7 +98,7 @@ if ($OPT{verbose}) {
     printf "%-15s = %s\n", $_, $OPT{$_};
   }
 }
-exit;
+
 my $time;
 if (exists $OPT{date}) {
   $time = to_time($OPT{date}, $OPT{'time'})

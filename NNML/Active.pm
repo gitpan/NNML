@@ -4,9 +4,9 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Sep 28 14:15:22 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Thu Oct 17 12:13:26 1996
+# Last Modified On: Tue Nov  5 17:39:34 1996
 # Language        : CPerl
-# Update Count    : 72
+# Update Count    : 77
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -157,13 +157,25 @@ sub list_match {
 }
 
 sub accept_article {
-  my ($self, $header, $head, $body, $create, @groups) = @_;
+  my ($self, $header, $head, $body, $create, $afile, @groups) = @_;
   my $group;
-  my $afile;
   my $any_group = 0;
+  my $force_new_ano = $afile;
+  my %seen;
   
   $self->_update;
+
+  if (-e $afile) {              # xaccept overwrites
+    my $fh  = new IO::File "> $afile";
+    unless (defined $fh) {
+      print "Could not write '$afile': $!\n";
+      return 0;
+    }
+    $fh->print($head, "\n", $body);
+    $fh->close;
+  }
   for $group (@groups) {
+    next if $seen{$group}++;    # do not insert twice
     unless (exists $GROUP{$group}) {
       next unless $create;      # no permission to create group
       my $dir = $group;
@@ -184,17 +196,21 @@ sub accept_article {
                                        );
     }
     my $ov   = $GROUP{$group}->overview;
+
     my $oano = $GROUP{$group}->article_by_id($header->{'message-id'});
+    $oano = undef if $force_new_ano;
+
     my $ano  = $oano || $GROUP{$group}->add;
     my $dir  = $GROUP{$group}->dir;
     my $file = "$dir/$ano";
 
-    if (!$oano and -e $file) {
+    if (!$force_new_ano and !$oano and -e $file) {
       print "File '$file' already exists\n";
       return 0;
     }
 
-    unless ($oano) {            # do not overwrite .overwiev ...
+    # add overview entry if new article number
+    unless ($oano) {
       my $fh  = new IO::File ">> $ov";
       unless (defined $fh) {
         print "Could not write '$ov': $!\n";
@@ -213,12 +229,13 @@ sub accept_article {
                   $header->{xref});
       $fh->close;
     }
-    if (defined $afile) {
+    # add the article ...
+    if (defined $afile) {       # as link
       unless ($oano or link($afile, $file)) {
         print "Could not link '$file' to '$afile': $!\n";
         return 0;
       }
-    } else {
+    } else {                    # as copy
       $afile = $file;
       my $fh  = new IO::File "> $file";
       unless (defined $fh) {

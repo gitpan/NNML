@@ -1,3 +1,9 @@
+Proposed module list entry:
+,-----
+| NNML::
+| ::Server       adpO  A simple an NNTP server                      ULPFR
+`-----
+
 NAME
      NNML::Server - a minimal NNTP server
 

@@ -4,9 +4,9 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Sep 28 15:24:53 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Thu Oct 17 12:02:12 1996
+# Last Modified On: Tue Nov  5 17:53:31 1996
 # Language        : CPerl
-# Update Count    : 234
+# Update Count    : 249
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
@@ -53,8 +53,9 @@ sub new {
   my $hersockaddr = $fh->peername();
   my ($port, $iaddr) = unpack_sockaddr_in($hersockaddr);
   my $peer = gethostbyaddr($iaddr, AF_INET);
-  $self->{_peer} = $peer;
-
+  $self->{_peer}   = $peer;
+  $self->{_user}   = 'nobody';
+  $self->{_passwd} = '*';
   print "Connection from $peer\n";
   bless $self, $type;
   $self->msg(200, $msg);
@@ -168,13 +169,13 @@ sub cmd_authinfo {
 
   if (uc($cmd) eq  'USER') {
     $self->{_user}   = $arg;
-    unless (exists $self->{_passwd}) {
+    unless (exists $self->{_passwd} and $self->{_passwd} ne '*') {
       $self->msg(381);
       return;
     }
   } elsif (uc($cmd) eq 'PASS') {
     $self->{_passwd} = $arg;
-    unless (exists $self->{_user}) {
+    unless (exists $self->{_user} and $self->{_user} ne 'nobody') {
       $self->msg(382);
       return;
     }
@@ -258,12 +259,12 @@ sub cmd_newnews {
   
   $self->msg(230);
   for ($ACTIVE->list_match($match)) {
-    #$self->{_fh}->printf("** %s\r\n", $_->name);
-    for ($_->newnews($ltime)) {
-      $msgid{$_}++;
+    my %new = $_->newnews($ltime);
+    for (keys %new) {
+      $msgid{$_} ||= $new{$_};
     }
   }
-  for (keys %msgid) {
+  for (sort {$msgid{$b} <=> $msgid{$b}} keys %msgid) {
     $self->{_fh}->print($_, "\r\n");
   }
   $self->end;
@@ -432,6 +433,7 @@ sub cmd_xaccept {
 sub cmd_article { my $self = shift; $self->article('article', join ' ', @_)};
 sub cmd_head    { my $self = shift; $self->article('head',    join ' ', @_)};
 sub cmd_body    { my $self = shift; $self->article('body',    join ' ', @_)};
+sub cmd_xdate   { my $self = shift; $self->article('date',    join ' ', @_)};
 
 sub article {
   my ($self, $cmd, $parm) = @_;
@@ -463,7 +465,7 @@ sub article {
       return;
     }
 
-    my ($head, $body) = $self->{_group}->get($ano);
+    my ($head, $body, $date) = $self->{_group}->get($ano);
     my ($msgid) = ($head =~ /^Message-Id:\s*(<\S+>)/im);
 
     {                           # fake nnml header
@@ -474,7 +476,7 @@ sub article {
       $head .= $newsgroups;
     }
     
-    if ($head) {
+    if ($body) {
       $self->{_article} = $ano;
       if ($cmd eq 'article') {
         $self->msg(220,$ano, $msgid);
@@ -482,6 +484,9 @@ sub article {
       } elsif ($cmd eq 'head') {
         $self->msg(221,$ano, $msgid);
         $self->output_gz($head);
+      } elsif ($cmd eq 'date') {
+        $self->msg(288,$date >> 16, $date & 0xfffff, $ano, $msgid);
+        return;
       } else {
         $self->msg(222,$ano, $msgid);
         $self->output_gz($body);
@@ -521,7 +526,7 @@ sub cmd_post {
 }
 
 
-sub accept_article {
+sub accept_article {            # $extra_group also allows overwriting
   my ($self, $msgid, $extra_group) = @_;
   my %head = (
               subject         => '',
@@ -594,15 +599,21 @@ sub accept_article {
   unless (@newsgroups) {
     @newsgroups = split /,\s*/, $head{newsgroups};
   }
-  
+
+  my $file;
   if ($extra_group) {
     my %all = $self->msgid_to_anos($head{'message-id'});
-    if ($all{$extra_group}) {
-      $self->msg(441, "alreday have $head{'message-id'} in $extra_group".
-        " as $all{$extra_group}");
-      return;
+    @newsgroups = keys %all;
+    for (@newsgroups) {
+      my $any   = $newsgroups[0];
+      my $group = $ACTIVE->group($any);
+      my $dir   = $group->dir;
+      if (-f "$dir/$all{$any}") {
+        $file = "$dir/$all{$any}";
+        last;
+      }
     }
-    @newsgroups = (keys %all, $extra_group);
+    push @newsgroups, $extra_group unless exists $all{$extra_group};
   }
   unless (@newsgroups) {
     $self->msg(441, "No newsgroups specified");
@@ -614,7 +625,8 @@ sub accept_article {
     return;
   }
   my $create = NNML::Auth::perm($self,'create');
-  unless ($ACTIVE->accept_article(\%head, $head, $body, $create, @newsgroups)) {
+  unless ($ACTIVE->accept_article(\%head, $head, $body, $create, $file,
+                                  @newsgroups)) {
     $self->msg(441, "Something went wrong");
     return;
   }
@@ -771,8 +783,8 @@ xpath xpath MessageID
 281 Authentication accepted
 285 delete article ok
 286 delete group ok
-287 aricle accepted as %d in group %s
-
+287 article accepted as %d in group %s
+288 %d %d date of article %d %s 
 335 send article to be transferred.  End with <CR-LF>.<CR-LF>
 340 send article to be posted. End with <CR-LF>.<CR-LF>
 381 PASS required
