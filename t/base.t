@@ -11,8 +11,11 @@
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
 # 
-# $Locker$
-# $Log$
+# $Locker:  $
+# $Log: base.t,v $
+# Revision 1.1  1997/02/10 19:48:41  pfeifer
+# Switched to CVS
+#
 # 
 
 BEGIN { $| = 1; print "1..2\n"; }

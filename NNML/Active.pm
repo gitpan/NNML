@@ -4,18 +4,12 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Sep 28 14:15:22 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Tue Nov  5 17:39:34 1996
+# Last Modified On: Thu Feb 27 16:31:03 1997
 # Language        : CPerl
-# Update Count    : 77
+# Update Count    : 86
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
-# 
-# $Locker: pfeifer $
-# $Log: Active.pm,v $
-# Revision 1.1  1996/10/17 07:53:58  pfeifer
-# Initial revision
-#
 # 
 
 package NNML::Active;
@@ -36,6 +30,8 @@ $ACTIVE = bless {}, 'NNML::Active';
 
 my %GROUP;
 my $TIME = 0;
+
+sub last_change { $TIME }
 
 sub _read_active {
   %GROUP  = ();
@@ -157,15 +153,16 @@ sub list_match {
 }
 
 sub accept_article {
-  my ($self, $header, $head, $body, $create, $afile, @groups) = @_;
+  my ($self, $header, $head, $body, $create,
+      $afile, $extra_group, @groups) = @_;
   my $group;
   my $any_group = 0;
-  my $force_new_ano = $afile;
+  my $overwrite_file = $afile;
   my %seen;
   
   $self->_update;
 
-  if (-e $afile) {              # xaccept overwrites
+  if ($afile and -e $afile) {              # xaccept overwrites
     my $fh  = new IO::File "> $afile";
     unless (defined $fh) {
       print "Could not write '$afile': $!\n";
@@ -198,17 +195,21 @@ sub accept_article {
     my $ov   = $GROUP{$group}->overview;
 
     my $oano = $GROUP{$group}->article_by_id($header->{'message-id'});
-    $oano = undef if $force_new_ano;
-
-    my $ano  = $oano || $GROUP{$group}->add;
+    my $ano  = $oano || $GROUP{$group}->add($header->{'message-id'});
     my $dir  = $GROUP{$group}->dir;
     my $file = "$dir/$ano";
-
-    if (!$force_new_ano and !$oano and -e $file) {
-      print "File '$file' already exists\n";
-      return 0;
+    
+    if ($ano and $group eq $extra_group) { # force a copy
+      $ano =  $GROUP{$group}->add($header->{'message-id'});
+      $file = "$dir/$ano";
+      $oano = undef;
+    } else {
+      if (!$oano and -e $file) {
+        print "File '$file' already exists\n";
+        return 0;
+      }
     }
-
+    
     # add overview entry if new article number
     unless ($oano) {
       my $fh  = new IO::File ">> $ov";

@@ -1,5 +1,5 @@
-#!/usr/local/bin/perl
-
+#!/app/unido-i06/magic/perl
+#                              -*- Mode: Perl -*- 
 use Config;
 use File::Basename qw(&basename &dirname);
 
@@ -25,13 +25,19 @@ print "Extracting $file (with variable substitutions)\n";
 # You can use $Config{...} to use Configure variables.
 
 print OUT <<"!GROK!THIS!";
-$Config{'startperl'}
+$Config{'startperl'} 
 !GROK!THIS!
+print OUT <<'!NO!SUBS!';
+
+!NO!SUBS!
 
 # In the following, perl variables are not expanded during extraction.
 
 print OUT <<'!NO!SUBS!';
-eval 'exec perl -S $0 "$@"'
+eval 'exec perl  -S $0 "$@"'
+    if 0;
+
+eval 'exec perl  -S $0 "$@"'
     if 0;
 
 #                              -*- Mode: Perl -*- 
@@ -40,15 +46,21 @@ eval 'exec perl -S $0 "$@"'
 # Author          : Ulrich Pfeifer
 # Created On      : Fri Mar 10 10:34:08 1995
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Wed Oct  2 13:19:06 1996
+# Last Modified On: Wed Feb 19 23:09:31 1997
 # Language        : Perl
-# Update Count    : 84
+# Update Count    : 85
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
 # 
-# $Locker$
-# $Log$
+# $Locker:  $
+# $Log: overview.PL,v $
+# Revision 1.3  1997/02/20 13:20:02  pfeifer
+# Now seems to work again!
+#
+# Revision 1.1  1997/02/10 19:47:12  pfeifer
+# Switched to CVS
+#
 # 
 use Cwd;
 $home = $ENV{'HOME'} || $ENV{'LOGDIR'} ||
@@ -282,12 +294,12 @@ sub nov_entry {
     open(MAIL, "$file") || die "Could not open $file: $!\n";
     while (<MAIL>) {
         #$lines++;
-        if (/subject: (.*)/i)    { $subject    = $1; }
-        if (/from: (.*)/i)       { $from       = $1; }
-        if (/date: (.*)/i)       { $date       = $1; }
-        if (/Message-Id: (.*)/i) { $id         = $1; }
-        if (/references: (.*)/i) { $references = $1; }
-        if (/xref: (.*)/i)       { $xref       = $1; }
+        if (/^subject: (.*)/i)    { $subject    = $1; }
+        if (/^from: (.*)/i)       { $from       = $1; }
+        if (/^date: (.*)/i)       { $date       = $1; }
+        if (/^Message-Id: (.*)/i) { $id         = $1; }
+        if (/^references: (.*)/i) { $references = $1; }
+        if (/^xref: (.*)/i)       { $xref       = $1; }
         last if /^$/;
     }
     $xref = "$hostname $group:$file" unless $xref;

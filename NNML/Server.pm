@@ -4,15 +4,12 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Sep 28 13:53:36 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Tue Nov  5 11:02:54 1996
+# Last Modified On: Tue Mar  4 12:19:03 1997
 # Language        : CPerl
-# Update Count    : 93
+# Update Count    : 125
 # Status          : Unknown, Use with caution!
 #
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
-#
-# $Locker$
-# $Log$
 #
 
 package NNML::Server;
@@ -21,12 +18,13 @@ use NNML::Connection;
 use NNML::Config qw($Config);
 use IO::Socket;
 use IO::Select;
+use NNML::Handle;
 use strict;
 require Exporter;
 @ISA = qw(Exporter);
-@EXPORT = qw(server);
+@EXPORT = qw(server unspool);
 
-$VERSION = do{my @r=(q$Revision: 1.09 $=~/(\d+)/g);sprintf "%d."."%02d"x$#r,@r};
+$VERSION = '1.10';
 
 sub server {
   my %opt  = @_;
@@ -36,10 +34,12 @@ sub server {
     $Config->base($opt{base});
   }
   NNML::Auth::_update;          # just for the message
-  my $lsn  = new IO::Socket::INET(Listen    => 5,
-                                  LocalPort => $port,
-                                  Proto     => 'tcp');
-  die "Could not connect to port $port" unless defined $lsn;
+  my $lsn  = new NNML::Handle(Reuse     => 1,
+                              Listen    => 5,
+                              LocalPort => $port,
+                              Proto     => 'tcp');
+  die "Could not connect to port $port: $!\n" unless defined $lsn;
+
   my $SEL  = new IO::Select( $lsn );
   my %CON;
   my $fh;
@@ -52,35 +52,31 @@ sub server {
       if($fh == $lsn) {
         # Create a new socket
         my $new = $lsn->accept;
-        $new->autoflush(1);
+        # $new->autoflush(1);
         $CON{$new} = new NNML::Connection $new, $VERSION;
         $SEL->add($new);
       } else {
-        #my $cmd = $fh->getline();
-        my $cmd;
-        sysread($fh, $cmd, 512);
-        for (split /\r?\n/, $cmd) {
-          my ($func, @args) = split ' ', $_;
+        my $cmd = $fh->getline();
+        my ($func, @args) = split ' ', $cmd;
 
-          $func = lc $func;
-          if ($func eq 'shut') {
-            if (NNML::Auth::perm($CON{$fh}, $func)) {
-              my $fx;
-              print "Going down\n";
-              for $fx (keys %CON) {
-                $CON{$fx}->msg(400);
-                #$SEL->remove($fx);
-                $CON{$fx}->close;
-                delete $CON{$fx};
-              }
-              #$SEL->remove($lsn);
-              shutdown($lsn,2);
-              return;
-            } else {
-              $CON{$fh}->msg(480);
-              next;
+        $func = lc $func;
+        if ($func eq 'shut') {
+          if (NNML::Auth::perm($CON{$fh}, $func)) {
+            my $fx;
+            print "Going down\n";
+            for $fx (keys %CON) {
+              $CON{$fx}->msg(400);
+              $CON{$fx}->close;
+              delete $CON{$fx};
             }
+            $SEL->remove($lsn);
+            $lsn->close();
+            return;
+          } else {
+            $CON{$fh}->msg(480);
+            next;
           }
+        } else {
           $func = $CON{$fh}->dispatch($func, @args);
           if ($func eq 'quit') {
             print "closed\n";
@@ -104,7 +100,8 @@ NNML::Server - a minimal NNTP server
 
 =head1 SYNOPSIS
 
-  perl -MNNML::Server -e 'server()'
+  perl -MNNML::Server -e server
+  perl -MNNML::Server -e unspool
 
 =head1 DESCRIPTION
 
@@ -116,7 +113,8 @@ Supported commands:
 
   ARTICLE, AUTHINFO, BODY, GROUP, HEAD, HELP, IHAVE, LAST, LIST,
   MODE, NEWGROUPS, NEWNEWS, NEXT, POST, QUIT, SLAVE, STAT, XOVER
-
+  XHDR
+  
 The main reason for writing this was to synchronize my mail directories
 across different hosts. The Mail directories are MH-Style with a F<.overview>
 file in each folder and an F<active> file in the base
@@ -140,6 +138,16 @@ The command B<POST> and B<IHAVE> honour the C<Newsgroups> header B<if>
 not overwritten by the C<X-Nnml-Groups> header. Articles will contain
 an appropriate C<X-Nnml-Groups> header when retrieved by message-id.
 
+When the client submits the C<SLAVE> command, all forther post
+requests are spooled in C<$Config->spool> (usually
+F<~/Mail/NNML.spool>) for performance reasons. You can process the
+spooled articles by submitting the C<XUNSPOOL> command or by calling
+
+  perl -MNNML::Server -e unspool
+
+Rejected articles will be saven in C<$Config->bad> (usually
+F<~/Mail/NNML.bad>)
+
 =head1 AUTHORIZATION
 
 To enable access restrictions use:
@@ -155,6 +163,7 @@ If I<base>F</passwd> exists, three levels of authorization are recognized:
 
 Users with permission B<admin> may shut down the server using C<SHUT>.
 Also these users may create new groups simply by posting to them.
+Permission B<admin> is also required for the C<XUNSPOOL> command.
 
 =item B<write>
 

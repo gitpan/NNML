@@ -12,8 +12,11 @@
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
 # 
-# $Locker$
-# $Log$
+# $Locker:  $
+# $Log: Auth.pm,v $
+# Revision 1.1  1997/02/10 19:47:12  pfeifer
+# Switched to CVS
+#
 # 
 
 package NNML::Auth;

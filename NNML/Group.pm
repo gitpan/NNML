@@ -4,15 +4,12 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Sep 28 16:33:51 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Tue Nov  5 10:55:08 1996
+# Last Modified On: Thu Feb 27 16:37:12 1997
 # Language        : CPerl
-# Update Count    : 46
+# Update Count    : 54
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
-# 
-# $Locker$
-# $Log$
 # 
 
 package NNML::Group;
@@ -36,9 +33,18 @@ sub min   { $_[0]->{_min}};
 sub name  { $_[0]->{_name}};
 sub post  { $_[0]->{_post}};
 sub ctime { $_[0]->{_ctime}};
-sub add   { $_[0]->{_max}++; $_[0]->{_max}}
 sub dir   { $_[0]->{_dir}};
 
+sub add   {
+  my ($self, $id) = @_;
+  my $ano = ++$self->{_max};
+
+  if ($id) {
+    $self->{_byid}->{$id}  = $ano;
+    $self->{_byno}->{$ano} = $id;
+  }
+  $ano;
+}
 
 sub article_by_id {
   my ($self, $msgid) = @_;
@@ -58,9 +64,18 @@ sub overview {$_[0]->{_dir}. '/.overview'}
 
 sub _update {
   my $self = shift;
-  my $mtime = (stat($self->overview))[9];
 
-  $self->_read_overview if $mtime > $self->{_time};
+  # Assume '.overview' has not changed if 'active' was not
+  # modified. The implementation is not correct since a stat() for
+  # active is not forced - but it saves many stat() calls. A stat()
+  # call for 'active' is forced when message id's are used. Therfore
+  # this is quite good.
+
+  if (NNML::Active::last_change() > $self->{_time}) {
+    my $mtime = (stat($self->overview))[9];
+
+    $self->_read_overview if $mtime > $self->{_time};
+  }
 }
 
 sub _read_overview {

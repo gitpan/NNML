@@ -4,16 +4,14 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Sep 28 15:24:53 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Tue Nov  5 17:53:31 1996
+# Last Modified On: Fri Feb 28 10:21:26 1997
 # Language        : CPerl
-# Update Count    : 249
+# Update Count    : 323
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
 # 
-# $Locker$
-# $Log$
-# 
+
 package NNML::Connection;
 use NNML::Active qw($ACTIVE);
 use NNML::Config qw($Config);
@@ -90,67 +88,21 @@ sub msg {
   my $code = shift;
   my $msg  = $MSG{$code} || '';
   printf("%03d $msg\r\n", $code, @_);
-  $self->{_fh}->printf("%03d $msg\r\n", $code, @_);
+  $self->{_fh}->datasend(sprintf "%03d $msg\r\n", $code, @_);
 }
 
 sub end {
   my $self = shift;
-  $self->{_fh}->autoflush(1);
-  $self->{_fh}->print(".\r\n");
+  $self->{_fh}->dataend;
 }
 
 use IO::Pipe;
 use IO::File;
 
-sub gzip {
-  my $text = shift;
-  my $result;
-  
-  my $pipe = new IO::Pipe;
-  my $pid = fork();
-
-  if($pid) {
-    $pipe->reader;
-    my $stdin = bless \*STDIN, "IO::Handle";
-    $stdin->fdopen($pipe,"r");
-    my $gzip;
-    if ($_[0] =~ /d/) {
-      #print STDERR "mimencode -u | gzip @_ |\n";
-      $gzip = new IO::File "mimencode -u | gzip @_ |";
-    } else {
-      #print STDERR "gzip @_ | mimencode |\n";
-      $gzip = new IO::File "gzip @_ | mimencode |";
-    }
-    local ($/) = undef;
-    $result = <$gzip>;
-    wait;
-  } elsif(defined $pid) {
-    $pipe->writer;
-    chomp($text);
-    print $pipe $text;
-    $pipe->close;
-    exit;
-  }
-  $result;
-}
-
-sub output_gz {
-  my $self = shift;
-
-  if (exists $self->{_mode}->{GZIP}) {
-    $self->{_fh}->print(gzip(join('',@_), '-cf'), "\n");
-  } else {
-    $self->output(@_);
-  }
-}
-
 sub output {
   my $self = shift;
 
-  for (@_) {
-    s/^\./../mg;
-    $self->{_fh}->print($_);
-  }
+  $self->{_fh}->datasend(@_);
 }
 
 
@@ -212,11 +164,6 @@ sub cmd_mode {
   my $self = shift;
   my $mode = uc shift;
 
-  if ($mode eq 'GZIP') {
-    $self->{_mode}->{GZIP} = 1;
-  } elsif ($mode eq 'NOGZIP') {
-    delete $self->{_mode}->{GZIP} if exists $self->{_mode}->{GZIP};
-  }
   $self->msg(280, $mode);
 }
 
@@ -230,7 +177,8 @@ sub cmd_list {
 
   $self->msg(215);
   for ($ACTIVE->groups) {
-    $self->{_fh}->printf("%s %d %d %s\r\n", $_->name, $_->max, $_->min, $_->post)
+    $self->output(sprintf "%s %d %d %s\r\n",
+                  $_->name, $_->max, $_->min, $_->post)
   }
   $self->end;
 }
@@ -243,10 +191,10 @@ sub cmd_newgroups {
     $self->msg(501);
     return;
   }
-  # print "[$date] ($year,$mon,$mday,$hours,$min,$sec)\n $ltime\n";
+
   $self->msg(231);
   for ($ACTIVE->newgroups($ltime)) {
-     $self->{_fh}->print($_, "\r\n");
+     $self->output($_, "\r\n");
   }
   $self->end;
 }
@@ -265,7 +213,7 @@ sub cmd_newnews {
     }
   }
   for (sort {$msgid{$b} <=> $msgid{$b}} keys %msgid) {
-    $self->{_fh}->print($_, "\r\n");
+    $self->output($_, "\r\n");
   }
   $self->end;
 }
@@ -281,6 +229,40 @@ sub cmd_xover {
   my $xover = $self->{_group}->xover(@range);
   $self->msg(224);
   $self->output("$xover");
+  $self->end;
+}
+
+
+my %FLD;
+
+BEGIN {
+  my $i;
+
+  my @FLD = qw(ano subject from date message-id references size lines xref);
+
+  for ($i=0;$i<@FLD;$i++) {
+    $FLD{$FLD[$i]} = $i;
+  }
+}
+
+sub cmd_xhdr {
+  my $self = shift;
+  my $fld  = shift;
+  my $fno  = $FLD{lc $fld};
+  my $parm = shift;
+  my @range = ($parm =~ m/(\d+)-(\d+)/);
+  unless ($self->{_group}) {
+    $self->msg(412);
+    return;
+  }
+  my $xover = $self->{_group}->xover(@range);
+  $self->msg(221, $fld);
+  for (split /\n/, $xover) {
+    my ($ano, $val) = (split /\t/, $_)[0,$fno];
+    $val = "(none)" unless $val; 
+
+    $self->output("$ano $val\r\n");
+  }
   $self->end;
 }
 
@@ -327,6 +309,7 @@ sub cmd_last {
 sub cmd_slave {
   my $self = shift;
   $self->{timeout} = $Config->mirror_timeout;
+  $self->{slave}   = 1;
   $self->msg(202);
 }
 
@@ -346,7 +329,7 @@ sub cmd_stat {
   if ($ano >= $self->{_group}->min and $ano <= $self->{_group}->max) {
     $self->{_article} = $ano;
   } else {
-    $self->msg(423);
+    $self->msg(423, $self->{_group}->name);
     return;
   }
   $self->msg(223, $self->{_article},
@@ -402,7 +385,7 @@ sub cmd_xmovefrom {
 
   my ($head, $body) = $self->{_group}->get($ano);
   unless ($head) {
-    $self->msg(423);
+    $self->msg(423, $self->{_group}->name);
     return;
   }
   unless ($self->{_group}->delete($ano)) {
@@ -411,7 +394,7 @@ sub cmd_xmovefrom {
   }
   my ($msgid) = ($head =~ /^Message-Id:\s*(<\S+>)/m);
   $self->msg(220,$ano, $msgid);
-  $self->output_gz($head, "\n", $body);
+  $self->output($head, "\n", $body);
 }
 
 sub cmd_xaccept {
@@ -438,17 +421,17 @@ sub cmd_xdate   { my $self = shift; $self->article('date',    join ' ', @_)};
 sub article {
   my ($self, $cmd, $parm) = @_;
   if (defined $parm and $parm =~ /^<.*>$/) {
-    my ($head, $body) = $self->article_msgid($parm);
+    my ($head, $body) = article_msgid($parm);
     if ($head) {
       if ($cmd eq 'article') {
         $self->msg(220,0,$parm);
-        $self->output_gz($head, "\n", $body);
+        $self->output($head, "\n", $body);
       } elsif ($cmd eq 'head') {
-        $self->msg(221,0,$parm);
-        $self->output_gz($head);
+        $self->msg(225,0,$parm);
+        $self->output($head);
       } else {
         $self->msg(222,0,$parm);
-        $self->output_gz($body);
+        $self->output($body);
       }
       $self->end;
     } else {
@@ -469,7 +452,7 @@ sub article {
     my ($msgid) = ($head =~ /^Message-Id:\s*(<\S+>)/im);
 
     {                           # fake nnml header
-      my %ano = $self->msgid_to_anos($msgid);
+      my %ano = msgid_to_anos($msgid);
       my @newsgroups = keys %ano;
       $head =~ s/^X-nnml-groups:.*\n//mig;
       my $newsgroups = sprintf("X-nnml-groups: %s\n", join(', ', @newsgroups));
@@ -480,25 +463,26 @@ sub article {
       $self->{_article} = $ano;
       if ($cmd eq 'article') {
         $self->msg(220,$ano, $msgid);
-        $self->output_gz($head, "\n", $body);
+        $self->output($head, "\n", $body);
       } elsif ($cmd eq 'head') {
-        $self->msg(221,$ano, $msgid);
-        $self->output_gz($head);
+        $self->msg(225,$ano, $msgid);
+        $self->output($head);
       } elsif ($cmd eq 'date') {
         $self->msg(288,$date >> 16, $date & 0xfffff, $ano, $msgid);
         return;
       } else {
         $self->msg(222,$ano, $msgid);
-        $self->output_gz($body);
+        $self->output($body);
       }
       $self->end;
     } else {
-      $self->msg(423);
+      $self->msg(423, $self->{_group}->name);
     }
   }
 }
 
 sub post {1;}                   # tbs
+
 sub cmd_ihave {
   my ($self, $msgid) = @_;
 
@@ -506,7 +490,7 @@ sub cmd_ihave {
     $self->msg(437);
     return;
   }
-  if ($self->article_msgid($msgid)) {
+  if (article_msgid($msgid)) {
     $self->msg(435);
     return;
   }
@@ -528,6 +512,86 @@ sub cmd_post {
 
 sub accept_article {            # $extra_group also allows overwriting
   my ($self, $msgid, $extra_group) = @_;
+  my $art;
+
+  if ($art = $self->{_fh}->read_until_dot()) {
+    $art = join '', @$art;
+  } else {                      # won't work?
+    print "accept_article() timed out\n";
+    $self->msg(441);
+    return;
+  }
+  my $create = NNML::Auth::perm($self,'create');
+
+  if ($self->{slave}) {
+    $self->msg(spool_article($Config->spool, $art, $msgid,
+                             $extra_group, $create));
+  } else {
+    my ($code, @msg) = inject_article($art, $msgid, $extra_group, $create);
+    unless ($code =~ /^2/) {
+      spool_article($Config->bad, $art, $msgid, $extra_group, $create);
+    }
+    $self->msg($code, @msg);
+  }
+}
+
+sub spool_article {
+  my ($spool, $art, $msgid, $extra_group, $create) = @_;
+  my $sf    = new IO::File ">> $spool";
+
+  if ($sf) {
+    $sf->printf("$;$;$;$;\t%s\t%s\t%d\n", $msgid, $extra_group, $create);
+    $sf->print($art);
+    return(240);
+  } else {
+    return(441, "Could not spool article: $!")
+  }
+}
+
+sub cmd_xunspool {               # 289 %d/%d articles unspooled
+  my $self = shift;
+
+  unless (NNML::Auth::perm($self,'create')) {
+    $self->msg(480, "'Need create power'");
+    return;
+  }
+  my ($no_art, $bad) = NNML::Server::unspool();
+  $self->msg(289, $no_art, $no_art-$bad);
+}
+
+sub NNML::Server::unspool {
+  my ($no_art, $bad);
+  my $spool = $Config->spool;
+  my $sf    = new IO::File "< $spool";
+
+  NNML::Auth::_update();          # just for the message
+  NNML::Active::_update();        # just to make sure
+  if ($sf) {
+    local $/  = "$;$;$;$;\t";
+    my $ent;
+  
+    while (defined ($ent = <$sf>)) {
+      chomp($ent);
+      next unless $ent;
+      my($ctl, $art) = split /\n/, $ent, 2;
+      my ($msgid, $extra_group, $create) = split /\t/, $ctl;
+
+      $no_art++;
+      my ($code, @msg) = inject_article($art, $msgid, $extra_group, $create);
+      unless ($code =~ /^2/) {
+        spool_article($Config->bad, $art, $msgid, $extra_group, $create);
+        $bad++;
+      }
+    }
+    $sf->close;
+    rename $spool, "$spool~"
+      or warn "Could not rename '$spool': $!\n";
+  }
+  return($no_art, $bad);
+}
+
+sub inject_article {
+  my ($art, $msgid, $extra_group, $create) = @_;
   my %head = (
               subject         => '',
               from            => '',
@@ -540,47 +604,22 @@ sub accept_article {            # $extra_group also allows overwriting
               newsgroups      => '',
              );
   my $header;
-  my $fh = $self->{_fh};
-  my $art   = '';
-  my $block = '';
-  my $retries = 9;
-  my $got_alarm = 0;
-
-  my $sel = new IO::Select( $fh );
-  while ($sel->can_read($self->{timeout} || $Config->timeout)) {
-    if ($fh->sysread($block, 512)) {
-      $art .= $block;
-      last if $art =~ /\r?\n\.\r?\n$/;
-    }
-  }
-
-  unless ($art =~ /\r?\n\.\r?\n$/) {
-    print "accept_article() timed out\n";
-    $self->msg(441);
-    return;
-  }
+  
   $art =~ s/.\r?\n$//;
-  if ($art =~ /^(‹|H4sI)/) {
-    $art =~ s/\r?\n$//;
-    $art = gzip($art, '-cd');
-  } else {
-    $art =~ s/\r//g;
-    $art =~ s/^\.\././mg;
-  }
+  $art =~ s/\r//g;
+  $art =~ s/^\.\././mg;
+
   my ($head, $body) = split /^$/m, $art, 2;
 
-  for (split /\n/, $head) {
-    if (/^(\S+):\s*(.*)/) {
-      my $h = lc $1;
-      if (exists $head{$h}) {
-        $header = $h;
-        $head{$h} = $2;
-      } else {
-        $header = undef;
-      }
-    } elsif ($header and /^\s+(.*)/) {
-      $head{$header} .= ' ' . $2;
-    }
+  my $headcopy = $head;
+  $headcopy =~ s{\s*\n\s+}{ }g;    # fold continue lines
+  my ($fron, %thead) = split /^(\S+):/m, $headcopy;
+  for (keys %thead) {
+    my $val = $thead{$_};
+    $val =~ s/\s/ /;
+    $val =~ s/^\s+//;
+    $val =~ s/\s+$//;
+    $head{lc $_} = $val if exists $head{lc $_};
   }
   unless ($head{lines}) {
     $head{lines} = ($body =~ m/(\n)/g);
@@ -602,7 +641,7 @@ sub accept_article {            # $extra_group also allows overwriting
 
   my $file;
   if ($extra_group) {
-    my %all = $self->msgid_to_anos($head{'message-id'});
+    my %all = msgid_to_anos($head{'message-id'});
     @newsgroups = keys %all;
     for (@newsgroups) {
       my $any   = $newsgroups[0];
@@ -616,36 +655,34 @@ sub accept_article {            # $extra_group also allows overwriting
     push @newsgroups, $extra_group unless exists $all{$extra_group};
   }
   unless (@newsgroups) {
-    $self->msg(441, "No newsgroups specified");
-    return;
+    return(441, "No newsgroups specified");
   }
-  if (!$extra_group and $self->article_msgid($head{'message-id'})) {
+  if (!$extra_group and article_msgid($head{'message-id'})) {
     print "POSTER lied about 'message-id'}\n";
-    $self->msg(441, "alreday have $head{'message-id'}");
-    return;
+    return(441, "alreday have $head{'message-id'}");
   }
-  my $create = NNML::Auth::perm($self,'create');
+
   unless ($ACTIVE->accept_article(\%head, $head, $body, $create, $file,
+                                  $extra_group,
                                   @newsgroups)) {
-    $self->msg(441, "Something went wrong");
-    return;
+    return(441, "Something went wrong");
   }
   if ($extra_group) {
-    my %all = $self->msgid_to_anos($head{'message-id'});
+    my %all = msgid_to_anos($head{'message-id'});
     if ($all{$extra_group}) {
-      $self->msg(287,$all{$extra_group},$extra_group);
+      return(287,$all{$extra_group},$extra_group);
     } else {
-      $self->msg(441, "Article '$head{'message-id'}' not arrived in $extra_group");
+      return(441, "Article '$head{'message-id'}' not arrived in $extra_group");
     }
   } else {
-    $self->msg(240);
+    return(240);
   }
 }
 
 sub article_msgid {
-  my ($self, $msgid) = @_;
+  my $msgid = shift;
   my ($groupname);
-  my %ano = $self->msgid_to_anos($msgid);
+  my %ano = msgid_to_anos($msgid);
   my @newsgroups = keys %ano;
   my ($head, $body);
   
@@ -662,7 +699,7 @@ sub article_msgid {
 }
 
 sub msgid_to_anos {
-  my ($self, $msgid) = @_;
+  my $msgid = shift;
   my $group;
   my %ano;
   for $group ($ACTIVE->groups) {
@@ -690,7 +727,7 @@ sub to_time {
   return unless defined $date;
   if (length($date)<8) {
     $date =~ m/^(\d\d)/;
-    if ($1 > 80) {
+    if ($1 > 30) {
       $date = "19$date";          # not strictly RCS 977
     } else {
       $date = "20$date";          # not strictly RCS 977
@@ -764,40 +801,40 @@ xover [range]
 xpat header range|MessageID pat [morepat...]
 xpath xpath MessageID
 
+100 help follows
 200 NNML server %s ready - posting allowed
 201 NNML server %s ready - no posting allowed
 202 slave status noted
-280 mode %s noted (x)
 205 closing connection - goodbye!
 211 %d %d %d %s group selected
 215 list of newsgroups follows
 220 %d %s article retrieved - head and body follow
-221 %d %s article retrieved - head follows
+221 %s  fields follows
 222 %d %s article retrieved - body follows
 223 %d %s article retrieved - request text separately 230 list of new articles by message-id follows
+224 overview follows
+225 %d %s article retrieved - head follows
 230 list of new articles by message-id follows
 231 list of new newsgroups follows
-224 overview follows
 235 article transferred ok
 240 article posted ok
+280 mode %s noted (x)
 281 Authentication accepted
 285 delete article ok
 286 delete group ok
 287 article accepted as %d in group %s
 288 %d %d date of article %d %s 
+289 %d/%d articles unspooled
 335 send article to be transferred.  End with <CR-LF>.<CR-LF>
 340 send article to be posted. End with <CR-LF>.<CR-LF>
 381 PASS required
-482 USER required
-485 delete article failed
-486 delete group failed
 400 service discontinued
 411 no such news group
 412 no newsgroup has been selected
 420 no current article has been selected
 421 no next article in this group
 422 no previous article in this group
-423 no such article number in this group
+423 no such article number in this group '%s'
 430 no such article found
 435 article not wanted - do not send it
 436 transfer failed - try again later
@@ -806,6 +843,9 @@ xpath xpath MessageID
 441 posting failed: '%s'
 480 Authentication required: %s
 482 Authentication rejected
+482 USER required
+485 delete article failed
+486 delete group failed
 
 500 command not recognized
 501 command syntax error

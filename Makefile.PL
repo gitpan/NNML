@@ -4,35 +4,48 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Sat Sep 28 13:51:19 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Thu Oct 17 11:49:36 1996
+# Last Modified On: Tue Mar  4 12:26:10 1997
 # Language        : CPerl
-# Update Count    : 41
+# Update Count    : 70
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
 # 
-# $Locker$
-# $Log$
-# 
 
 use ExtUtils::MakeMaker qw(:DEFAULT neatvalue);
 use File::Path;
-# See lib/ExtUtils/MakeMaker.pm for details of how to influence
-# the contents of the Makefile that is written.
+require Text::Wrap;
+sub wrap ($) {
+  my $text = shift;
+
+  $text =~ s/^\s+//;
+  $text =~ s/\s+$//;
+  Text::Wrap::wrap('','',$text) . "\n\n";
+}
+
+my @scripts = qw(nnmirror overview nnsync);
+my $wrap = join ';', map "perlwrap $_ > $_.PL",  @scripts;
 
 WriteMakefile(
               'CONFIGURE'    => \&init,
               'PREREQ_PM'    => {
                                  'IO::File'   => 0,
                                  'IO::Select' => 0,
+                                 'Net::Cmd'   => 2.07,
                                  'IO::Socket' => 1.13
                                 },
               'NAME'	     => 'NNML',
               'VERSION_FROM' => 'NNML/Server.pm',
-              'dist'         => { SUFFIX => "gz", COMPRESS => "gzip -f"},
-              'EXE_FILES'    => [qw(nnmirror overview)],
-              'clean'        => {FILES => "nnmirror overview"},
+              'dist'         => {
+                                 SUFFIX   => "gz",
+                                 COMPRESS => "gzip -f",
+                                 PREOP    => "$wrap; changelog -update; ".
+                                 'pod2text NNML/Server.pm > README',
+                                },
+              'EXE_FILES'    => \@scripts,
+              'clean'        => {FILES => "@scripts"},
              );
+
 
 # Code shamelessly stolen from the CPAN Makefile.PL by Andreas Koenig
 sub init {
@@ -40,7 +53,7 @@ sub init {
     eval {require NNML::Config;};
     $Config = $NNML::Config::Config || {};
     
-    print qq{
+    print wrap qq{
 
 The NNML module needs a directory of its own to store the databases.
 This directory may be relative to the executing users home
@@ -51,7 +64,7 @@ directory. Use '~/' to indicate this.
     my $base = $Config->{base} || '~/Mail';
     $Config->{base} = prompt("NNML base directory?", $base);
 
-    print qq{
+    print wrap qq{
 
 NNML uses an active file to store summary information about the
 newsgroups. This is usually '$base/active'. You may abbreviate '$base'
@@ -62,7 +75,7 @@ by '~' in which case the current base setting is used.
     $Config->{active} = prompt("NNML active file?", $active);
 
 
-    print qq{
+    print wrap qq{
 
 NNML implements a basic authorisation using passwords. Where should
 the password file be stored?  This is usually '$base/passwd'.  You may
@@ -72,7 +85,7 @@ abbreviate '$base' by '~'.
     my $passwd = $Config->{passwd} || MM->catfile ('~', 'passwd');
     $Config->{passwd} = prompt("NNML passwd file?", $passwd);
 
-    print qq{
+    print wrap qq{
 
 Which port should the server listen perl default? This is usually 119.
 
@@ -80,28 +93,7 @@ Which port should the server listen perl default? This is usually 119.
     my $port = $Config->{port} || 119;
     $Config->{port} = prompt("NNML default port?", $port);
 
-    print qq{
-
-Since the server will run as a single thread it needs some timeout value to
-decide when an POST or IHAVE request should be interrupted. Otherwise
-all connections would be blocked.
-
-};
-
-    my $timeout = $Config->{timeout} || 30;
-    $Config->{timeout} = prompt("Timeout in seconds?", $timeout);
-
-    print qq{
-
-Nnmirror fetches articles completely befor sending it to the receiving
-server. You may want to specify a larger value for the timeout for it
-when you mirror over a modem line.
-
-};
-    my $mtimeout = $Config->{mirror_timeout} || 3 * $Config->{timeout};
-    $Config->{mirror_timeout} = prompt("Mirror timeout in seconds?", $mtimeout);
-
-    print qq{
+    print wrap qq{
 
 If you intend to use nnmirror, what is the default host you want to
 mirror from/to.
@@ -114,7 +106,7 @@ mirror from/to.
     my $mirrorport  = $Config->{mirror_port} || 119;
     $Config->{mirror_port} = prompt("Default mirror port?", $mirrorport);
 
-    print qq{
+    print wrap qq{
 
 If you intend to use nnmirror and either your server or the mirror
 server use authentication, it may be convenient to specify default
@@ -135,7 +127,7 @@ default user.
     $Config->{local_user} = prompt("Default user on local server?",
                                           $luser);
     $Config->{local_user} = '' if $Config->{local_user} eq 'none';
-    print qq{
+    print wrap qq{
 
 We will ask you also for the corresponding passwords. You should
 provide them ONLY IF NOBODY ELSE has access to your box.
@@ -173,6 +165,15 @@ nnmirror.
     }
     close(FH);
 }
+
+sub MY::postamble {
+q[
+
+TAGS: MANIFEST
+	etags `].$^X.q[ -ane 'print "$$F[0]\n"' MANIFEST`
+]
+}
+
 __END__
 #                              -*- Mode: Perl -*- 
 # Config.pm -- 
@@ -186,9 +187,6 @@ __END__
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
-# 
-# $Locker$
-# $Log$
 # 
 
 package NNML::Config;
@@ -268,6 +266,16 @@ sub base {
   $self->{_base} = $self->{base};
   $self->{_base} =~ s/^~/$self->home/e;
   $self->{_base};
+}
+
+sub spool {
+  my $self   = shift;
+  $self->base . '/NNML.spool';
+}
+
+sub bad {
+  my $self   = shift;
+  $self->base . '/NNML.bad';
 }
 
 sub active {

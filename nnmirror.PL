@@ -28,34 +28,41 @@ print OUT <<"!GROK!THIS!";
 $Config{'startperl'} 
 !GROK!THIS!
 print OUT <<'!NO!SUBS!';
+
+!NO!SUBS!
+
+# In the following, perl variables are not expanded during extraction.
+
+print OUT <<'!NO!SUBS!';
+eval 'exec perl  -S $0 "$@"'
+    if 0;
+
+eval 'exec perl  -S $0 "$@"'
+    if 0;
+
+eval 'exec perl  -S $0 "$@"'
+    if 0;
+
 #                              -*- Mode: Perl -*- 
 # nnmirror -- 
 # ITIID           : $ITI$ $Header $__Header$
 # Author          : Ulrich Pfeifer
 # Created On      : Sun Sep 29 11:50:11 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Tue Nov  5 11:04:41 1996
+# Last Modified On: Fri Feb 21 15:15:45 1997
 # Language        : CPerl
-# Update Count    : 43
+# Update Count    : 80
 # Status          : Unknown, Use with caution!
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
 # 
-# $Locker$
-# $Log$
-# 
-!NO!SUBS!
-
-# In the following, perl variables are not expanded during extraction.
-
-print OUT <<'!NO!SUBS!';
-eval 'exec perl -S $0 "$@"'
+eval 'exec perl  -S $0 "$@"'
     if 0;
         
 BEGIN {$0 = 'nnmirror ....'; }
 use Getopt::Long;
 use Time::Local;
-require News::NNTPClient;
+use Net::NNTP ();
 use NNML::Config qw($Config);
 use strict;
 use vars qw(%OPT);
@@ -113,9 +120,10 @@ if (exists $OPT{group}) {
   $group = '*',
 }
 
-my $from = new News::NNTPClient $OPT{fhost}, $OPT{fport};
-my $to   = new News::NNTPClient $OPT{thost}, $OPT{tport};
+my $from = new Net::NNTP $OPT{fhost}, Port => $OPT{fport};
+my $to   = new Net::NNTP $OPT{thost}, Port => $OPT{tport};
 
+# We should care if authinfo failes?
 if ($OPT{tpass}) {
   $to->authinfo($OPT{tuser}, $OPT{tpass});
 }
@@ -124,29 +132,56 @@ if ($OPT{fpass}) {
 }
 die unless defined $from and defined $to;
 
-# Check if we can use gzip mode
-if ($to->command("MODE GZIP")) {
-  $from->command("MODE GZIP");
-}
-$to->command("SLAVE");
-my @msgid = $from->newnews($group, $time);
-my $togo = scalar(@msgid );
-my $msgid;
+$to->slave();
 
-foreach $msgid (@msgid) {
+my $messages;
+
+unless ($messages = $from->newnews($time, $group)) {
+  die "Could not run newnews $group $time";
+}
+
+my $togo   = scalar(@$messages);
+my $msgid;
+my $IHAVE_ALLOWED = 1;
+
+foreach $msgid (@$messages) {
   $togo--;
   chomp($msgid);
   next unless $msgid;           # sanity check
   next if exists $OPT{ignore} and $msgid =~ /$OPT{ignore}/o;
   next if exists $OPT{only}   and $msgid !~ /$OPT{only}/o;
-  if ($to->command("IHAVE $msgid")) {
+
+  my $art;
+  if ($IHAVE_ALLOWED and $to->ihave($msgid)) {
     print STDERR "$togo: FETCH $msgid";
-    my @art = $from->article($msgid);
-    printf STDERR " %d lines ", scalar(@art);
-    @art = ('head', '', 'body') unless @art;
-    #$to->{DBUG} = 2;
-    $to->squirt(@art);
-    print STDERR "done\n";
+
+    if ($art = $from->article($msgid)) {
+      printf STDERR " %d lines ", scalar(@$art);
+      $to->datasend($art);
+      $to->dataend();
+      print STDERR "done\n";
+    } else {
+      # We promised to send an article. Now we are not able to.
+      # send a dummy article without 'Newsgroups:' header. The server
+      # will not acept it.
+      $to->datasend("head", "\n", "body");
+      $to->dataend();
+      printf "FAILED\n\t%s", $from->message;
+    }
+  } elsif ($to->postok) {
+    # We are not allowed to use IHAVE :-(
+    $IHAVE_ALLOWED = 0;
+    unless ($to->head($msgid)) {
+      # $to seems not to have it
+      print STDERR "$togo: FETCH $msgid";
+
+      if ($art = $from->article($msgid)) {
+        # ... and we could fetch it
+        printf STDERR " %d lines ", scalar(@$art);
+        $to->post($art);
+        print STDERR ($to->ok)?"done\n":"FAILED";
+      }
+    }
   }
 }
 
@@ -156,7 +191,7 @@ sub to_time {
   return unless defined $date;
   if (length($date)<8) {
     $date =~ m/^(\d\d)/;
-    if ($1 > 80) {
+    if ($1 > 30) {
       $date = "19$date";          # not strictly RCS 977
     } else {
       $date = "20$date";          # not strictly RCS 977
@@ -210,7 +245,7 @@ B<nnmirror>
 =head1 DESCRIPTION
 
 B<Nnmirror> connects a B<FROM> and a B<TO> server using
-B<News::NNTPClient>. It asks the B<FROM> server for new articles using
+B<Net::NNTP>. It asks the B<FROM> server for new articles using
 the C<NEWNEWS> command. For each returned message-id, the B<TO> server
 is asked using C<IHAVE>. If B<TO> wants the article, it is fetched
 from B<FROM> and forwarded to B<TO>.
