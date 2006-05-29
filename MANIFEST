@@ -13,3 +13,4 @@ overview.PL
 t/base.t
 eg/NNML.conf
 nnsync.PL
+META.yml                                 Module meta-data (added by MakeMaker)
